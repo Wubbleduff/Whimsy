@@ -29,21 +29,6 @@
 // Private Structures:
 //------------------------------------------------------------------------------
 
-struct InstanceData
-{
-  // Information for calculation the transform on the GPU
-  v2 position;
-  v2 scale;
-  float rotation;
-
-  // Other information from the sprite
-  Color color;
-  v2 bottomLeftUV;
-  v2 topRightUV;
-
-  unsigned texture;
-};
-
 //------------------------------------------------------------------------------
 // Private Variables:
 //------------------------------------------------------------------------------
@@ -69,7 +54,7 @@ GLuint defaultTexture;
 float cameraZoom = 20.0f;
 
 // Maximum number of instances per group
-static const unsigned MAX_INSTANCES = 100000;
+static const unsigned MAX_INSTANCES = 300000;
 
 // Vertices of the unit square mesh
 static float vertices[] = {
@@ -271,73 +256,21 @@ static SpriteHandleData *AddHandleToEndOfGroup(unsigned int index, InstanceGroup
 {
   SpriteHandleData *newNode = new SpriteHandleData(index, group);
 
-  if(group->tail == 0)
+  int nextIndex = 0;
+
+  if(group->tail != 0)
   {
-    group->tail = newNode;
+    SpriteHandleData *tail = group->tail;
 
-    return newNode;
+    nextIndex = tail->index + 1;
+    tail->next = newNode;
+    newNode->prev = tail;
   }
-
-  SpriteHandleData *tail = group->tail;
-
-  tail->next = newNode;
-  newNode->prev = tail;
 
   group->tail = newNode;
+  group->tail->index = nextIndex;
 
   return newNode;
-}
-
-static void ReplaceNodeWithEnd(SpriteHandle *toRemovePtr)
-{
-  SpriteHandle &toRemove = *toRemovePtr;
-  SpriteHandle replacement = toRemove->group->tail;
-
-  if(toRemove->next == toRemove->group->tail)
-  {
-    toRemove->group->tail->prev = toRemove->group->tail->prev->prev;
-    if(toRemove->group->tail->prev)
-    {
-      toRemove->group->tail->prev->next = replacement;
-    }
-
-    replacement->index = toRemove->index;
-
-    delete toRemove;
-    toRemove = 0;
-    return;
-  }
-  else
-  {
-    replacement->next = toRemove->next;
-    toRemove->group->tail = toRemove->group->tail->prev;
-    if(toRemove->group->tail)
-    {
-      toRemove->group->tail->next = 0;
-      replacement->prev = toRemove->prev;
-
-      if(toRemove->group->tail->prev == 0)
-      {
-        delete toRemove;
-        toRemove = 0;
-        return;
-      }
-    }
-  }
-  
-
-  if(toRemove->prev)
-  {
-    toRemove->prev->next = replacement;
-  }
-  if(toRemove->next)
-  {
-    toRemove->next->prev = replacement; 
-  }
-
-
-  delete toRemove;
-  toRemove = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -552,6 +485,11 @@ void DrawGraphicsScreenInstanceList()
 SpriteHandle AddSprite(v2 pos, v2 scale, float rotation, Color color, int layer, unsigned int texture,
                        v2 bottomLeftUV, v2 topRightUV, int shader)
 {
+  if(texture == 0)
+  {
+    texture = defaultTexture;
+  }
+
   InstanceData instance =
   {
     pos,
@@ -594,17 +532,81 @@ SpriteHandle AddSprite(v2 pos, v2 scale, float rotation, Color color, int layer,
   return handle;
 }
 
-void RemoveSprite(SpriteHandle *spritePtr)
+InstanceData *GetSpriteData(SpriteHandle handle)
 {
-  SpriteHandle &sprite = *spritePtr;
-  std::vector<InstanceData> &groupData = sprite->group->data;
-  InstanceData &dataToOverwrite = groupData[sprite->index];
-  InstanceData &endData = groupData[sprite->group->tail->index];
+  return &handle->group->data[handle->index];
+}
 
+void RemoveSprite(SpriteHandle *toRemovePtr)
+{
+  SpriteHandle &toRemove = *toRemovePtr;
+  std::vector<InstanceData> &groupData = toRemove->group->data;
+  InstanceData &dataToOverwrite = groupData[toRemove->index];
+  InstanceData &endData = groupData[toRemove->group->tail->index];
+
+  // Copy vector data
   dataToOverwrite = endData;
   groupData.pop_back();
 
-  ReplaceNodeWithEnd(spritePtr);
+  {
+    SpriteHandle &toRemove = *toRemovePtr;
+    SpriteHandle &tail = toRemove->group->tail;
+
+    // Check 3 cases
+    if(toRemove == tail)
+    {
+      // Want to remove the tail
+      tail = tail->prev;
+      if(tail)
+      {
+        tail->next = 0;
+      }
+
+      delete toRemove;
+      toRemove = 0;
+    }
+    else if(toRemove == tail->prev)
+    {
+      // Want to remove one before the tail
+      if(toRemove->prev)
+      {
+        toRemove->prev->next = tail;
+      }
+      
+      tail->prev = toRemove->prev;
+
+      tail->index = toRemove->index;
+      delete toRemove;
+      toRemove = 0;
+    }
+    else
+    {
+      // Want to remove from the middle of the list
+      SpriteHandle target = tail;
+
+      // Move the tail pointer back one
+      // Don't have to worry about the tail becoming null here
+      tail = tail->prev;
+      tail->next = 0;
+
+      // Insert into the middle
+      if(toRemove->prev)
+      {
+        toRemove->prev->next = target;
+      }
+
+      // toRemove should have a next because it's not at the end
+      toRemove->next->prev = target;
+
+      target->prev = toRemove->prev;
+      target->next = toRemove->next;
+
+      target->index = toRemove->index;
+
+      delete toRemove;
+      toRemove = 0;
+    }
+  }
 }
 
 #if 0
@@ -691,10 +693,11 @@ void InitGraphics()
 
   glfwSwapInterval(0);
 
-  unsigned char texel[1];
+  unsigned int texel[1];
+  texel[0] = 0xFFFFFFFF;
   glGenTextures(1, &defaultTexture);
   glBindTexture(GL_TEXTURE_2D, defaultTexture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, texel);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, texel);
 
   //glfwSetDropCallback(window, &DropCallBack);
 }

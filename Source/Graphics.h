@@ -25,6 +25,21 @@ struct Color
   float r, g, b, a;
 };
 
+struct InstanceData
+{
+  // Information for calculation the transform on the GPU
+  v2 position;
+  v2 scale;
+  float rotation;
+
+  // Other information from the sprite
+  Color color;
+  v2 bottomLeftUV;
+  v2 topRightUV;
+
+  unsigned texture;
+};
+
 // Sprite handle
 struct SpriteHandleData;
 typedef SpriteHandleData *SpriteHandle;
@@ -38,6 +53,8 @@ void InitGraphics();
 // Adds an item to the working vector of sprites
 SpriteHandle AddSprite(v2 pos, v2 scale, float rotation, Color color, int layer, unsigned int texture,
                        v2 bottomLeftUV = { 0, 0 }, v2 topRightUV = { 1, 1 }, int shader = 0);
+
+InstanceData *GetSpriteData(SpriteHandle handle);
 
 void RemoveSprite(SpriteHandle *spritePtr);
 
