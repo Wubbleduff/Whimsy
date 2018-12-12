@@ -193,3 +193,9 @@ v2 v2::operator/(float scalar) const
   return v2(x / scalar, y / scalar);
 }
 
+// Calculates the dot product between this and the other vector
+float dot(v2 a, v2 b)
+{
+  return a * b;
+}
+

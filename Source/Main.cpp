@@ -1,56 +1,105 @@
-#include "Graphics.H"
-
+#include "Graphics.h"
+#include "Input.h"
 #include "Random.h"
+#include "Logging.h"
 
-int main()
+#include <stdio.h>
+#include "GLFW/glfw3.h" // For getting time
+
+// Worlds included here for now
+#include "DrawCollisions.h"
+#include "Particles.h"
+
+
+static float previousTime;
+
+static bool running;
+
+static void Init()
 {
+  InitLog();
   InitGraphics();
   InitRand();
 
-#define NUM 200000
-
-  static SpriteHandle handles[NUM];
-  static float speeds[NUM];
-
-#if 1
-  for(int i = 0; i < NUM; i++)
-  {
-    handles[i] = AddSprite(v2(RandomFloat(-20.0f, 20.0f), RandomFloat(-20.0f, 20.0f)),
-                           v2(1.0f, 1.0f),
-                           RandomFloat(0.0f, 2 * PI),
-                           Color(75.0f / 255.0f * 2, 0.0f, 130.0f / 255.0f * 2, RandomFloat(0.1f, 1.0f)),
-                           1000,
-                           0);
-    speeds[i] = RandomFloat(0.1f, 1.0f);
-  }
-#endif
+  running = true;
 
 #if 0
-  SpriteHandle handle = AddSprite(v2(RandomFloat(-10.0f, 10.0f), RandomFloat(-10.0f, 10.0f)),
-    v2(1.0f, 1.0f),
-    RandomFloat(0.0f, 2 * PI),
-    Color(1.0f, 0.0f, 0.0f, 1.0f),
-    1000,
-    0);
+  InitDrawCollisions();
+#else
+  InitParticles();
+#endif
+}
+
+static void Update()
+{
+  while(WindowExists() && running)
+  {
+    // Time how long the last frame took
+    float currentTime = (float)glfwGetTime();
+    float dt = (currentTime - previousTime);
+
+    // Mark the current frame's time so we can find the difference in time next frame
+    previousTime = currentTime;
+
+    // A timer that will progress along the engine's timeline
+    static float simTimer;
+    float maxTime = 1.0f;
+
+    // This is how long each frame will be or the set time between frames
+    float timeStep = 1.0f / 120.0f;
+
+    // How many simulations has this frame done so far
+    int sims = 0;
+
+    // The maximum number of simulations the game loop can do each frame in case it gets too far behind.
+    // You don't want an infinite loop of it taking too long and getting further behind.
+    int maxSims = 5;
+
+    // Count up the timeline
+    simTimer += dt;
+
+    // Update all systems of the engine for how many timesteps the timeline has crossed
+    while (simTimer >= timeStep && sims <= maxSims)
+    {
+#if 0
+      UpdateDrawCollisions();
+#else
+      UpdateParticles();
 #endif
 
-
-  while(WindowExists())
-  {
-    BeginGraphicsFrame();
-
-    for(int i = 0; i < NUM; i++)
-    {
-      InstanceData *data = GetSpriteData(handles[i]);
-      v2 v = data->position;
-      v2 direction = v2(-v.y, v.x);
-      data->position += direction * speeds[i] * 0.02f;
+      // Count down the sim timer
+      simTimer -= timeStep;
+      sims++;
     }
+
+    // Cap the sim timer if the program can't keep up
+    if(simTimer >= maxTime)
+    {
+      simTimer = maxTime;
+    }
+
+    // Escape
+    if(ButtonDown(256))
+    {
+      running = false;
+    }
+
+    BeginGraphicsFrame();
 
     DrawGraphicsInstanceList();
 
     EndGraphicsFrame();
+
+    //LogMessage("ms: %f\n", dt * 1000.0f);
   }
+}
+
+int main()
+{
+  Init();
+
+  Update();
 
   return 0;
 }
+

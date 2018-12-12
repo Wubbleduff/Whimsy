@@ -58,6 +58,8 @@ InstanceData *GetSpriteData(SpriteHandle handle);
 
 void RemoveSprite(SpriteHandle *spritePtr);
 
+SpriteHandle AddLine(v2 begin, v2 end, float thickness, Color color, int layer);
+
 #if 0
 void AddScreenSprite(v2 pos, v2 scale, float rotation, Color color, int layer, unsigned int texture,
                      v2 bottomLeftUV = { 0, 0 }, v2 topRightUV = { 1, 1 }, int shader = 0);
@@ -96,4 +98,7 @@ v2 DeviceToPixelCoords(v2 &deviceCoords);
 // Convert a position on screen to a world position or vice versa
 v2 DeviceCoordinateToWorldPosition(v2 deviceCoord);
 v2 WorldPositionToDeviceCoordinate(v2 deviceCoord);
+
+struct GLFWwindow;
+GLFWwindow *GetEngineWindow();
 

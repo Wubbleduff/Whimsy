@@ -8,6 +8,9 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{4ca67050-038f-424f-acc5-b806d9baecfd}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Worlds">
+      <UniqueIdentifier>{2634389c-3b26-45f9-b1c8-2fa7ee011ddf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Graphics.cpp">
@@ -25,6 +28,18 @@
     <ClCompile Include="Source\Random.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\DrawCollisions.cpp">
+      <Filter>Source Files\Worlds</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Input.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Particles.cpp">
+      <Filter>Source Files\Worlds</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\Logging.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Graphics.h">
@@ -37,6 +52,18 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Random.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\DrawCollisions.h">
+      <Filter>Source Files\Worlds</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Input.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Particles.h">
+      <Filter>Source Files\Worlds</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\Logging.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

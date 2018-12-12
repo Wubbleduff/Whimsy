@@ -100,3 +100,6 @@ private:
 
 // Returns this vector scaled by the scalar
 v2 operator*(float scalar, const v2 rhs);
+
+// Calculates the dot product between this and the other vector
+float dot(v2 a, v2 b);

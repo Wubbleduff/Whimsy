@@ -22,7 +22,7 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{55CD225C-F9A7-45F3-9179-E71B1D3ECAFB}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -112,14 +112,22 @@ xcopy Libraries\glfw\Win32\glfw3.dll $(TargetDir) /y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\DrawCollisions.cpp" />
     <ClCompile Include="Source\Graphics.cpp" />
+    <ClCompile Include="Source\Input.cpp" />
+    <ClCompile Include="Source\Logging.cpp" />
     <ClCompile Include="Source\Main.cpp" />
+    <ClCompile Include="Source\Particles.cpp" />
     <ClCompile Include="Source\Random.cpp" />
     <ClCompile Include="Source\Texture.cpp" />
     <ClCompile Include="Source\Vector2D.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Source\DrawCollisions.h" />
     <ClInclude Include="Source\Graphics.h" />
+    <ClInclude Include="Source\Input.h" />
+    <ClInclude Include="Source\Logging.h" />
+    <ClInclude Include="Source\Particles.h" />
     <ClInclude Include="Source\Random.h" />
     <ClInclude Include="Source\Texture.h" />
     <ClInclude Include="Source\Vector2D.h" />

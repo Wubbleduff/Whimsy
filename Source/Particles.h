@@ -1,0 +1,5 @@
+
+void InitParticles();
+
+void UpdateParticles();
+

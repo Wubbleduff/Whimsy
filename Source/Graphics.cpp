@@ -277,40 +277,6 @@ static SpriteHandleData *AddHandleToEndOfGroup(unsigned int index, InstanceGroup
 // Public Functions:
 //------------------------------------------------------------------------------
 
-// Draw an arrow using world coordinates
-#if 0
-void DebugDrawArrow(v2 begin, v2 end, float thickness, Color color, int layer)
-{
-  v2 vector = end - begin;
-  float rot = atan2f(vector.y, vector.x);
-  float length = vector.Length();
-  v2 scale;
-  v2 pos = begin + (vector / 2.0f);
-
-  scale.x = length;
-  scale.y = thickness;
-
-  AddSprite(pos, scale, rot, color, layer, GetTextureID("Default.png"));
-}
-#endif
-
-// Draw an arrow using screen coordinates
-#if 0
-void DebugDrawScreenArrow(v2 begin, v2 end, float thickness, Color color, int layer)
-{
-  v2 vector = end - begin;
-  float rot = atan2f(vector.y, vector.x);
-  float length = vector.Length();
-  v2 scale;
-  v2 pos = begin + (vector / 2.0f);
-
-  scale.x = length;
-  scale.y = thickness;
-
-  AddScreenSprite(pos, scale, rot, color, layer, GetTextureID("Default.png"));
-}
-#endif
-
 static void UseShader(int shader)
 {
   // Prep texture uniform for binding
@@ -422,6 +388,21 @@ void DrawGraphicsInstanceList()
 
   // glFinish seems to be a better solution
   glFinish();
+}
+
+// Draw an arrow using world coordinates
+SpriteHandle AddLine(v2 begin, v2 end, float thickness, Color color, int layer)
+{
+  v2 vector = end - begin;
+  float rot = atan2f(vector.y, vector.x);
+  float length = vector.Length();
+  v2 scale;
+  v2 pos = begin + (vector / 2.0f);
+
+  scale.x = length;
+  scale.y = thickness;
+
+  return AddSprite(pos, scale, rot, color, layer, defaultTexture);
 }
 
 #if 0
@@ -838,5 +819,28 @@ v2 DeviceToPixelCoords(v2 &deviceCoords)
   pixelCoords.x = (float)HorizontalDeviceCoordinatesToPixels(deviceCoords.x);
   pixelCoords.y = (float)VerticalDeviceCoordinatesToPixels(deviceCoords.y);
   return pixelCoords;
+}
+
+v2 DeviceCoordinateToWorldPosition(v2 deviceCoord)
+{
+  v2 pos;
+  pos.x = 1.0f / (2.0f / viewportDimensions.x * cameraZoom) * deviceCoord.x;
+  pos.y = -1.0f / (2.0f / viewportDimensions.y * cameraZoom) * deviceCoord.y;
+
+  return pos;
+}
+
+v2 WorldPositionToDeviceCoordinate(v2 deviceCoord)
+{
+  v2 pos;
+  pos.x = (2.0f / viewportDimensions.x * cameraZoom) * deviceCoord.x;
+  pos.y = (2.0f / viewportDimensions.y * cameraZoom) * deviceCoord.y;
+
+  return pos;
+}
+
+GLFWwindow *GetEngineWindow()
+{
+  return window;
 }
 
