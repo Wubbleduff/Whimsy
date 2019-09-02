@@ -7,6 +7,9 @@ flat in int textureIndex;
 in vec2 bottomLeftUV;
 in vec2 topRightUV;
 
+in vec2 center;
+in float radius;
+
 uniform sampler2D ourTexture[32];
 
 void main()
@@ -116,4 +119,11 @@ void main()
       fragColor = color * texture(ourTexture[31], samplePos);
       break;
   }
+
+  vec4 fragToCenter = vec4(center, 0.0f, 1.0f) - gl_FragCoord;
+  float dist = fragToCenter.x * fragToCenter.x + fragToCenter.y * fragToCenter.y;
+
+  float scalar = dist / (radius * radius);
+
+  fragColor *= 1.0f - scalar;
 }

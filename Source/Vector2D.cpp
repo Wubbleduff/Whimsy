@@ -21,13 +21,6 @@ v2::v2() : x(0.0f), y(0.0f)
 {
 }
 
-// Copy constructor
-v2::v2(const v2 &v)
-{
-  x = v.x;
-  y = v.y;
-}
-
 // Non default constructor
 v2::v2(float inX, float inY) : x(inX), y(inY)
 {
@@ -197,5 +190,10 @@ v2 v2::operator/(float scalar) const
 float dot(v2 a, v2 b)
 {
   return a * b;
+}
+
+v2 Reflect(v2 v, v2 n)
+{
+  return v - 2.0f * dot(v, n) * n;
 }
 

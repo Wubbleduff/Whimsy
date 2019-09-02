@@ -10,6 +10,101 @@
 
 #define Squared(x) (x * x)
 
+
+
+
+
+#define SCARY
+static void UpdateParticleRange(int startIndex, int endIndex, v2 mousePos, int buttonFlags);
+
+
+#ifdef SCARY
+#include <iostream>
+#include <deque>
+#include <functional>
+#include <thread>
+#include <condition_variable>
+#include <mutex>
+#include <random>
+#include <atomic>
+
+
+struct ThreadArgs
+{
+  int startIndex;
+  int endIndex;
+  v2 mousePos;
+  int buttonFlags;
+};
+
+static std::vector< std::thread > workers;
+static std::deque< ThreadArgs > workItems;
+static std::mutex queue_mutex;
+static std::condition_variable cv_task;
+static std::condition_variable cv_finished;
+static unsigned int busy;
+static bool stop;
+
+void thread_proc()
+{
+  while (true)
+  {
+    std::unique_lock<std::mutex> latch(queue_mutex);
+    cv_task.wait(latch, [](){ return stop || !workItems.empty(); });
+    if (!workItems.empty())
+    {
+      // got work. set busy.
+      ++busy;
+
+      // pull from queue
+      ThreadArgs work = workItems.front();
+      workItems.pop_front();
+
+      // release lock. run async
+      latch.unlock();
+
+      // run function outside context
+      UpdateParticleRange(work.startIndex, work.endIndex, work.mousePos, work.buttonFlags);
+
+
+      latch.lock();
+      --busy;
+      cv_finished.notify_one();
+    }
+    else if (stop)
+    {
+      break;
+    }
+  }
+}
+
+// generic function push
+void enqueue(ThreadArgs args)
+{
+  std::unique_lock<std::mutex> lock(queue_mutex);
+  workItems.push_back(args);
+  cv_task.notify_one();
+}
+
+// waits until the queue is empty.
+void waitFinished()
+{
+  std::unique_lock<std::mutex> lock(queue_mutex);
+  cv_finished.wait(lock, [](){ return workItems.empty() && (busy == 0); });
+}
+
+
+#endif // SCARY
+
+
+
+
+
+
+
+
+
+
 struct Particle
 {
   SpriteHandle sprite;
@@ -22,7 +117,8 @@ static std::vector<Particle> particles;
 static int textureID;
 
 static int numParticlesToFire = 200;
-static v2 scaleRange = v2(0.04f, 0.1f);
+//static v2 scaleRange = v2(0.04f, 0.1f);
+static v2 scaleRange = v2(1.5f, 4.0f);
 static v2 speedRange = v2(0.01f, 0.2f);
 static v2 angleRange = v2(0.0f, 2.0f * PI);
 
@@ -36,6 +132,8 @@ static Color colors[] =
   Color(1.0f, 1.0f, 0.0f, 1.0f)
 #endif
 };
+
+static unsigned int numThreads;
 
 static v2 MoveInCircle(v2 particlePos, v2 mousePos)
 {
@@ -99,7 +197,7 @@ static void UpdateParticle(v2 *positionPtr, v2 *velocityPtr, v2 mousePos, int bu
 {
   v2 &pos = *positionPtr;
   v2 &velocity = *velocityPtr;
-
+#if 1
   v2 f = v2(0.0f, 0.0f);
   v2 v = mousePos - pos;
 
@@ -149,10 +247,12 @@ static void UpdateParticle(v2 *positionPtr, v2 *velocityPtr, v2 mousePos, int bu
   velocity += f * 0.01f;
   velocity = velocity.ClampLength(3.0f);
 
+
   velocity -= velocity * 0.005f;
 
 
   velocity = velocity.ClampLength(2.0f);
+#endif
   pos += velocity;
 
 
@@ -189,7 +289,7 @@ static void AddParticle(v2 mousePos)
   v2 scale = v2(1.0f, 1.0f) * RandomFloat(scaleRange.x, scaleRange.y);
   float angle = RandomFloat(angleRange.x, angleRange.y);
   float speed = RandomFloat(speedRange.x, speedRange.y);
-  Color color = colors[RandomInt(0, _countof(colors))];
+  Color color = colors[RandomInt(0, _countof(colors) - 1)];
 
 
   Particle particle;
@@ -202,9 +302,17 @@ void InitParticles()
 {
   textureID = GetTextureID("DefaultCircle.png");
 
-  for(int i = 0; i < 200; i++)
+  for(int i = 0; i < 100; i++)
   {
     AddParticle(v2());
+  }
+
+  numThreads = std::thread::hardware_concurrency();
+  //numThreads = 8;
+
+  for (unsigned int i = 0; i < numThreads; i++)
+  {
+    workers.push_back(std::thread(thread_proc));
   }
 }
 
@@ -246,11 +354,28 @@ void UpdateParticles()
   {
     buttonFlags |= 1 << 5;
   }
-
-#define MULTI_THREADEDx
+  
+#define MULTI_THREADED
 
 #ifdef MULTI_THREADED
-#define NUM_THREADS 1
+
+#ifdef SCARY
+
+  int numChunks = numThreads * 32;
+  int chunk = particles.size() / numChunks;
+  for(int i = 0; i < numChunks; i++)
+  {
+    ThreadArgs args;
+    args.startIndex = i * chunk;
+    args.endIndex = (i + 1) * chunk;
+    args.mousePos = mousePos;
+    args.buttonFlags = buttonFlags;
+
+    enqueue(args);
+  }
+
+  waitFinished();
+#else // SCARY
 
   std::vector<std::thread> threads;
   int chunk = particles.size() / NUM_THREADS;
@@ -267,9 +392,23 @@ void UpdateParticles()
   }
 
   threads.clear();
-#else
+#endif // SCARY
+#else // MULTI_THREADED
   UpdateParticleRange(0, particles.size(), mousePos, buttonFlags);
-#endif
+#endif // MUTI_THREADED
 
 
+}
+
+void ExitParticles()
+{
+  // set stop-condition
+  std::unique_lock<std::mutex> latch(queue_mutex);
+  stop = true;
+  cv_task.notify_all();
+  latch.unlock();
+
+  // all threads terminate, then we're done.
+  for (auto& t : workers)
+    t.join();
 }

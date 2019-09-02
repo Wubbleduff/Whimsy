@@ -19,7 +19,7 @@
 
 #include "Graphics.h"
 #include "Texture.h"
-#include "glew.h"
+#include "GL/glew.h"
 #include "GLFW/glfw3.h"
 
 #include <thread>
@@ -54,7 +54,7 @@ GLuint defaultTexture;
 float cameraZoom = 20.0f;
 
 // Maximum number of instances per group
-static const unsigned MAX_INSTANCES = 300000;
+static const unsigned MAX_INSTANCES = 2000000;
 
 // Vertices of the unit square mesh
 static float vertices[] = {

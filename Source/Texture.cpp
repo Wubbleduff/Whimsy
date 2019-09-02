@@ -10,11 +10,11 @@
 
 #include "Texture.h"
 #include "Graphics.h"
-#include "glew.h"
+#include "GL/glew.h"
 #include "GLFW/glfw3.h"
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "../Libraries/stb/stb_image.h"
 
 //------------------------------------------------------------------------------
 // Private Variables:
@@ -135,7 +135,7 @@ void FreeTextures()
 
   for(; it != textureMap.end(); ++it)
   {
-    GLuint *id = (GLuint *)last->second;
+    GLuint *id = (GLuint *)(&last->second);
     glDeleteTextures(1, id);
     textureMap.erase(last->first);
 
@@ -144,7 +144,7 @@ void FreeTextures()
 
   if(last != textureMap.begin())
   {
-    GLuint *id = (GLuint *)last->second;
+    GLuint *id = (GLuint *)(&last->second);
     glDeleteTextures(1, id);
     textureMap.erase(last->first);
   }

@@ -1,6 +1,6 @@
 #include "Input.h"
 #include "Graphics.h"
-#include "GLFW/glfw3.h"
+#include "../Libraries/glfw/Include/GLFW/glfw3.h"
 
 bool ButtonDown(int key)
 {

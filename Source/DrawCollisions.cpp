@@ -88,7 +88,7 @@ bool LineLineCollision(v2 p1, v2 p2, v2 q1, v2 q2)
     }
   }
   else if((dotp1Toq1 < 0.0f && dotp2Toq2 < 0.0f) ||
-    (dotp1Toq1 > 0.0f && dotp2Toq2 > 0.0f)
+          (dotp1Toq1 > 0.0f && dotp2Toq2 > 0.0f)
     )
   {
     // If they're the same sign, they're not intersecting, return false

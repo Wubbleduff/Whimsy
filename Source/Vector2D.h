@@ -25,9 +25,6 @@ public:
   // Default constructor
   v2();
 
-  // Copy constructor
-  v2(const v2 &v);
-
   // Non default constructor
   v2(float inX, float inY);
 
@@ -103,3 +100,5 @@ v2 operator*(float scalar, const v2 rhs);
 
 // Calculates the dot product between this and the other vector
 float dot(v2 a, v2 b);
+
+v2 Reflect(v2 v, v2 n);

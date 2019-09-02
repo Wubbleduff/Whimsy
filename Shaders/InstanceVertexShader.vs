@@ -20,31 +20,34 @@ flat out int textureIndex;
 out vec2 bottomLeftUV;
 out vec2 topRightUV;
 
+out vec2 center;
+out float radius;
+
 uniform mat4 cameraMatrix;
 
 void main()
 {
   // begin by calculating our matrices
-  mat4 scale = mat4(scale.x, 0, 0, 0,
+  mat4 scaleMtx = mat4(scale.x, 0, 0, 0,
                     0, scale.y, 0, 0,
                     0, 0, 1, 0, 
                     0, 0, 0, 1
                    );
 
-  mat4 rot = mat4( cos(rotation), sin(rotation), 0, 0,
+  mat4 rotMtx = mat4( cos(rotation), sin(rotation), 0, 0,
                   -sin(rotation), cos(rotation), 0, 0,
                    0, 0, 1, 0, 
                    0, 0, 0, 1
                  );
 
-  mat4 trans = mat4(1, 0, 0, 0,
+  mat4 transMtx = mat4(1, 0, 0, 0,
                     0, 1, 0, 0,
                     0, 0, 1, 0, 
                     offset.x, offset.y, 0, 1
                    );
 
   // Multiply them
-  mat4 transform = trans * rot * scale;
+  mat4 transform = transMtx * rotMtx * scaleMtx;
   transform = cameraMatrix * transform;
 
   gl_Position = transform * vec4(aPos, 1.0f);
@@ -56,4 +59,13 @@ void main()
 
   bottomLeftUV = aBottomLeftUV;
   topRightUV = aTopRightUV;
+
+  vec4 pixelPos = cameraMatrix * vec4(offset, 0.0f, 1.0f);
+  pixelPos.x = ((pixelPos.x + 1.0f) / 2.0f) * 1920;
+  pixelPos.y = ((pixelPos.y + 1.0f) / 2.0f) * 1080;
+  center = pixelPos.xy;
+  vec4 radiusValues = vec4(scale, 0.0f, 1.0f);
+  radiusValues = cameraMatrix * radiusValues;
+  radius = radiusValues.x;
+  radius = ((radius + 1.0f) / 2.0f) * 1920;
 }

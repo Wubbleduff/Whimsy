@@ -11,6 +11,9 @@
     <Filter Include="Source Files\Worlds">
       <UniqueIdentifier>{2634389c-3b26-45f9-b1c8-2fa7ee011ddf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\ImGui">
+      <UniqueIdentifier>{2b0b0921-3572-4423-b6ab-63355dc2ec8a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Source\Graphics.cpp">
@@ -40,6 +43,30 @@
     <ClCompile Include="Source\Logging.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\PhysicsTest.cpp">
+      <Filter>Source Files\Worlds</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\imgui\imgui.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\imgui\imgui_demo.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\imgui\imgui_draw.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\imgui\imgui_widgets.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\imgui\examples\imgui_impl_glfw.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Libraries\imgui\examples\imgui_impl_opengl3.cpp">
+      <Filter>Source Files\ImGui</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\profiling.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Graphics.h">
@@ -64,6 +91,36 @@
       <Filter>Source Files\Worlds</Filter>
     </ClInclude>
     <ClInclude Include="Source\Logging.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\PhysicsTest.h">
+      <Filter>Source Files\Worlds</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\imgui\imconfig.h">
+      <Filter>Source Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\imgui\imgui.h">
+      <Filter>Source Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\imgui\imgui_internal.h">
+      <Filter>Source Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\imgui\imstb_rectpack.h">
+      <Filter>Source Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\imgui\imstb_textedit.h">
+      <Filter>Source Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\imgui\imstb_truetype.h">
+      <Filter>Source Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\imgui\examples\imgui_impl_glfw.h">
+      <Filter>Source Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Libraries\imgui\examples\imgui_impl_opengl3.h">
+      <Filter>Source Files\ImGui</Filter>
+    </ClInclude>
+    <ClInclude Include="Source\profiling.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -68,6 +68,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>Libraries\imgui;Libraries\imgui\examples;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -112,22 +113,40 @@ xcopy Libraries\glfw\Win32\glfw3.dll $(TargetDir) /y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Libraries\imgui\examples\imgui_impl_glfw.cpp" />
+    <ClCompile Include="Libraries\imgui\examples\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="Libraries\imgui\imgui.cpp" />
+    <ClCompile Include="Libraries\imgui\imgui_demo.cpp" />
+    <ClCompile Include="Libraries\imgui\imgui_draw.cpp" />
+    <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Source\DrawCollisions.cpp" />
     <ClCompile Include="Source\Graphics.cpp" />
     <ClCompile Include="Source\Input.cpp" />
     <ClCompile Include="Source\Logging.cpp" />
     <ClCompile Include="Source\Main.cpp" />
     <ClCompile Include="Source\Particles.cpp" />
+    <ClCompile Include="Source\PhysicsTest.cpp" />
+    <ClCompile Include="Source\profiling.cpp" />
     <ClCompile Include="Source\Random.cpp" />
     <ClCompile Include="Source\Texture.cpp" />
     <ClCompile Include="Source\Vector2D.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Libraries\imgui\examples\imgui_impl_glfw.h" />
+    <ClInclude Include="Libraries\imgui\examples\imgui_impl_opengl3.h" />
+    <ClInclude Include="Libraries\imgui\imconfig.h" />
+    <ClInclude Include="Libraries\imgui\imgui.h" />
+    <ClInclude Include="Libraries\imgui\imgui_internal.h" />
+    <ClInclude Include="Libraries\imgui\imstb_rectpack.h" />
+    <ClInclude Include="Libraries\imgui\imstb_textedit.h" />
+    <ClInclude Include="Libraries\imgui\imstb_truetype.h" />
     <ClInclude Include="Source\DrawCollisions.h" />
     <ClInclude Include="Source\Graphics.h" />
     <ClInclude Include="Source\Input.h" />
     <ClInclude Include="Source\Logging.h" />
     <ClInclude Include="Source\Particles.h" />
+    <ClInclude Include="Source\PhysicsTest.h" />
+    <ClInclude Include="Source\profiling.h" />
     <ClInclude Include="Source\Random.h" />
     <ClInclude Include="Source\Texture.h" />
     <ClInclude Include="Source\Vector2D.h" />
