@@ -87,7 +87,7 @@ static void Update()
     simTimer += dt;// * 0.1f;
 
     // Update all systems of the engine for how many timesteps the timeline has crossed
-    //while(simTimer >= timeStep && sims <= maxSims)
+    while(simTimer >= timeStep && sims <= maxSims)
     {
 #if 0
       UpdateDrawCollisions();

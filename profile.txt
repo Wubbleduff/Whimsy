@@ -1,0 +1,21 @@
+Apply velocity
+  average time: 0.000000 ms
+
+Checking collisions
+  average time: 0.025582 ms
+
+Clearing
+  average time: 0.001727 ms
+
+Copying graphics data
+  average time: 0.002410 ms
+
+Moving entities
+  average time: 0.001606 ms
+
+Partitioning
+  average time: 0.000522 ms
+
+Resolving collisions
+  average time: 0.000000 ms
+
