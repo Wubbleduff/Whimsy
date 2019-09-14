@@ -1,4 +1,0 @@
-
-void InitDrawCollisions();
-
-void UpdateDrawCollisions();

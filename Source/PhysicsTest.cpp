@@ -1,9 +1,6 @@
-#include "DrawCollisions.h"
-#include "Vector2D.h"
-#include "Graphics.h"
-#include "Texture.h"
+#include "my_math.h"
+#include "renderer2D.h"
 #include "Random.h"
-#include "Input.h"
 
 #include "profiling.h"
 
@@ -12,10 +9,9 @@
 #include <vector>
 #include <array>
 
-constexpr float Abs(float a) { return (a < 0.0f) ? -a : a; }
-constexpr float Min(float a, float b) { return (a < b) ? a : b; }
-constexpr float Max(float a, float b) { return (a > b) ? a : b; }
-constexpr float Clamp(float a, float minValue, float maxValue) { return Min(Max(a, minValue), maxValue); }
+bool ButtonDown(unsigned button);
+bool MouseDown(unsigned button);
+v2 MouseWindowPosition();
 
 struct Circle
 {
@@ -28,12 +24,18 @@ struct Rect
   v2 scale;
 };
 
+struct Triangle
+{
+  v3 p, q, r;
+};
+
 struct Collider
 {
   enum Type
   {
     CIRCLE,
     RECT,
+    TRIANGLE,
 
   } type;
 
@@ -41,6 +43,7 @@ struct Collider
   {
     Circle circle;
     Rect rect;
+    Triangle triangle;
   };
 
   //std::vector<Collider *> enteredColliding = {};
@@ -51,7 +54,7 @@ struct Collider
 
 struct Entity
 {
-  v2 position;
+  v2 position = v2();
   float invMass = 1.0f;
   v2 velocity = v2();
   bool stuck = false;
@@ -59,7 +62,8 @@ struct Entity
   Collider collider;
 
   Color color = Color(1.0f, 1.0f, 1.0f, 1.0f);
-  SpriteHandle sprite;
+
+  ModelHandle model;
 };
 
 struct CollisionInfo
@@ -68,31 +72,14 @@ struct CollisionInfo
   Entity *b;
 
   bool collided;
-  v2 aNormal;
-  v2 bNormal;
+  v2 resolveNormal;
   float depth;
-
-};
-
-struct Cell
-{
-  std::vector<unsigned> entityList;
-  SpriteHandle sprite;
 };
 
 
 
 
 static std::vector<Entity> entities;
-
-const unsigned int GRID_WIDTH = 64;
-typedef std::array<Cell, GRID_WIDTH * GRID_WIDTH> CellList;
-
-const float CELL_WIDTH = 1.0f;
-const Color CELL_COLOR = Color(0.5f, 0.5f, 0.5f, 0.25f);
-static CellList cellGrid;
-
-
 
 
 
@@ -102,7 +89,7 @@ static bool PointOnEntity(v2 point, Entity *entity)
   if(entity->collider.type == Collider::CIRCLE)
   {
     v2 diff = entity->position - point;
-    if(diff.Length() < entity->collider.circle.radius)
+    if(length(diff) < entity->collider.circle.radius)
     {
       return true;
     }
@@ -128,15 +115,14 @@ static bool CircleCircleCollision(Entity *a, Entity *b, CollisionInfo *info)
   Circle &circleB = b->collider.circle;
 
   v2 diff = a->position - b->position;
-  if(circleA.radius + circleB.radius > diff.Length())
+  if(circleA.radius + circleB.radius > length(diff))
   {
-    v2 normal = diff.Unit();
+    v2 normal = unit(diff);
 
     info->a = a;
     info->b = b;
-    info->aNormal = normal;
-    info->bNormal = -normal;
-    info->depth = (circleA.radius + circleB.radius) - diff.Length();
+    info->resolveNormal = -normal;
+    info->depth = (circleA.radius + circleB.radius) - length(diff);
     info->collided = true;
     return true;
   }
@@ -154,18 +140,17 @@ static bool CircleRectCollision(Entity *aEntity, Entity *bEntity, CollisionInfo 
   float t = bEntity->position.y + rect.scale.y / 2.0f;
   float b = bEntity->position.y - rect.scale.y / 2.0f;
 
-  v2 test = v2(Clamp(circlePos.x, l, r), Clamp(circlePos.y, b, t));
+  v2 test = v2(clamp(circlePos.x, l, r), clamp(circlePos.y, b, t));
   v2 diff = circlePos - test;
 
-  if(diff.Length() < radius)
+  if(length(diff) < radius)
   {
-    v2 normal = diff.Unit();
+    v2 normal = unit(diff);
 
     info->a = aEntity;
     info->b = bEntity;
-    info->aNormal = normal;
-    info->bNormal = -normal;
-    info->depth = radius - diff.Length();
+    info->resolveNormal = -normal;
+    info->depth = radius - length(diff);
     info->collided = true;
     return true;
   }
@@ -199,15 +184,14 @@ static bool RectRectCollision(Entity *a, Entity *b, CollisionInfo *info)
     info->b = b;
 
     v2 normal = v2();
-    float minDiff = Max(Max(Max(lDiff, rDiff), tDiff), bDiff); // max because they're all negative
+    float minDiff = max(max(max(lDiff, rDiff), tDiff), bDiff); // max because they're all negative
     if(minDiff == lDiff) normal = v2(-1.0f, 0.0f);
     if(minDiff == rDiff) normal = v2(1.0f, 0.0f);
     if(minDiff == tDiff) normal = v2(0.0f, -1.0f);
     if(minDiff == bDiff) normal = v2(0.0f, 1.0f);
 
-    info->aNormal = -normal;
-    info->bNormal = normal;
-    info->depth = Abs(minDiff);
+    info->resolveNormal = normal;
+    info->depth = absf(minDiff);
     info->collided = true;
     return true;
   }
@@ -218,53 +202,63 @@ static bool RectRectCollision(Entity *a, Entity *b, CollisionInfo *info)
   }
 }
 
-static void WorldToGrid(v2 world, int *row, int *column)
-{
-  v2 gridPos = world;
-  gridPos /= CELL_WIDTH;
-  gridPos.y *= -1.0f;
-  gridPos.x += GRID_WIDTH / 2.0f;
-  gridPos.y += GRID_WIDTH / 2.0f;
 
-  *column = (int)gridPos.x;
-  *row = (int)gridPos.y;
+// NOTE:
+// I'm not going to consider points exactly on lines OR collinear lines
+// to be intersecting. The reason is is because it's more a complex and
+// the "resolution depth" would just be 0 anyways...
+static bool LineLineSegmentCollision(v2 a, v2 b, v2 p, v2 q, v2 *n, float *t)
+{
+  v2 ab = b - a;
+  v2 pq = q - p;
+  v2 abN = -find_normal(ab);
+  v2 pqN = -find_normal(pq);
+  v2 ap = p - a;
+  v2 aq = q - a;
+  v2 pb = b - p;
+
+  float distPAB = dot(ap, abN);
+  float distQAB = dot(aq, abN);
+  float distAPQ = dot(-ap, pqN);
+  float distBPQ = dot(pb, pqN);
+
+  // Make sure they're crossing
+  if(distPAB * distQAB > 0.0f) return false;
+  if(distAPQ * distBPQ > 0.0f) return false;
+  if(dot(ab, pqN) == 0.0f)     return false; // Collinear
+
+  float ratio = absf(dot(ap, abN)) / absf(dot(pq, abN));
+  if(ratio > 1.0f) ratio = absf(dot(aq, abN)) / absf(dot(ap, abN));
+
+  *n = abN;
+  *t = 1.0f - ratio;
+  return true;
 }
 
-static void GetCellsToCheckIndices(Entity *entity, unsigned *startRow, unsigned *startColumn, unsigned *numRows, unsigned *numColumns)
+static bool TriangleTriangleCollision(Entity *a, Entity *b, CollisionInfo *info)
 {
-  v2 worldTopLeft;
-  v2 worldBottomRight;
-
-  v2 worldPos = entity->position;
-  Collider *c = &entity->collider;
-  switch(entity->collider.type)
+  for(int i = 0; i < 3; i++)
   {
-    case Collider::CIRCLE:
-    {
-      worldTopLeft = worldPos + v2(-c->circle.radius, c->circle.radius);
-      worldBottomRight = worldPos + v2(c->circle.radius, -c->circle.radius);
-    } break;
 
-    case Collider::RECT:
+    for(int j = 0; j < 3; j++)
     {
-      worldTopLeft = worldPos + v2(-c->rect.scale.x / 2.0f, c->rect.scale.y / 2.0f);
-      worldBottomRight = worldPos + v2(c->rect.scale.x / 2.0f, -c->rect.scale.y / 2.0f);
-    } break;
+      v3 *aPoints = &(a->collider.triangle.p);
+      v3 *bPoints = &(b->collider.triangle.p);
+
+      v2 a = v2(aPoints[i].x, aPoints[i].y);
+      v2 b = v2(aPoints[(i + 1) % 3].x, aPoints[(i + 1) % 3].y);
+
+      v2 p = v2(bPoints[i].x, bPoints[i].y);
+      v2 q = v2(bPoints[(i + 1) % 3].x, bPoints[(i + 1) % 3].y);
+
+      v2 normal;
+      float depth;
+      if(LineLineSegmentCollision(a, b, p, q, &normal, &depth))
+      {
+        return true;
+      }
+    }
   }
-
-  int leftColumn, rightColumn, topRow, bottomRow;
-  WorldToGrid(worldTopLeft, &topRow, &leftColumn);
-  WorldToGrid(worldBottomRight, &bottomRow, &rightColumn);
-
-  leftColumn = Clamp(leftColumn, 0, GRID_WIDTH - 1);
-  rightColumn = Clamp(rightColumn, 0, GRID_WIDTH - 1);
-  topRow = Clamp(topRow, 0, GRID_WIDTH - 1);
-  bottomRow = Clamp(bottomRow, 0, GRID_WIDTH - 1);
-
-  *startRow = topRow;
-  *startColumn = leftColumn;
-  *numRows = bottomRow - topRow;
-  *numColumns = rightColumn - leftColumn;
 }
 
 static void CollideEntities(Entity *a, Entity *b, std::vector<CollisionInfo> *collisions)
@@ -324,37 +318,28 @@ static void CollideEntities(Entity *a, Entity *b, std::vector<CollisionInfo> *co
 
 void InitPhysicsTest()
 {
-  unsigned int circleTexture = GetTextureID("DefaultCircle.png");
-
-  for(int i = 0; i < 100; i++)
+  for(int i = 0; i < 1; i++)
   {
-
-    v2 position = v2(RandomFloat(-30.0f, 30.0f), RandomFloat(0.0f, 20.0f));
-    //float radius = RandomFloat(0.14f, 0.34f);
-    float radius = RandomFloat(2.0f, 2.5f);
-    //float radius = 3.0f;// * (i + 1);
-    //v2 position = v2(0.0f, i * (radius + 0.5f) * 2.0f - 10.0f);
+    v2 position = v2();
     Collider c;
 
-#if 1
-    unsigned int tex = circleTexture;
-    c.type = Collider::CIRCLE;
-    c.circle.radius = radius;
-#else
-    unsigned int tex = 0;
-    c.type = Collider::RECT;
-    c.rect.scale = v2(radius * 2.0f, radius * 2.0f);
-#endif
+    c.triangle.p = v3(-1.0f, -1.0f, 0.0f);
+    c.triangle.q = v3( 1.0f, -1.0f, 0.0f);
+    c.triangle.r = v3( 0.0f,  1.0f, 0.0f);
 
     Color color = Color(0.6f, 0.0f, 0.8f, 1.0f);
 
     Entity entity;
     entity.position = position;
     entity.collider = c;
-    entity.invMass = 1.0f / (PI * radius * radius);
+    entity.invMass = 1.0f / 1.0f;//(PI * radius * radius);
     entity.color = color;
-    entity.sprite = AddSprite(position, v2(radius * 2.0f, radius * 2.0f), 0.0f, color, 1, tex);
-    entities.push_back(entity);
+
+    unsigned indices[3] = {0, 1, 2};
+    //entity.model = create_model(&(c.triangle.p), 3, indices, 3, color);
+
+
+    //entities.push_back(entity);
   }
 
 #if 1
@@ -376,7 +361,12 @@ void InitPhysicsTest()
   entity.position = position;
   collider.rect.scale = scale;
   entity.collider = collider;
-  entity.sprite = AddSprite(position, scale, 0.0f, color, 1, 0);
+  entity.model = create_model(PRIMITIVE_QUAD, 0);
+  {
+    Model *temp_handle = get_temp_model_pointer(entity.model);
+    temp_handle->scale = scale;
+    temp_handle->blend_color = v4(color.r, color.b, color.g, color.a);
+  }
   entities.push_back(entity);
 
 
@@ -387,46 +377,28 @@ void InitPhysicsTest()
   entity.position = position;
   collider.rect.scale = scale;
   entity.collider = collider;
-  entity.sprite = AddSprite(position, scale, 0.0f, color, 1, 0);
-  entities.push_back(entity);
+  //entities.push_back(entity);
 
   position = v2(45.0f, 0.0f);
 
   entity.position = position;
   collider.rect.scale = scale;
   entity.collider = collider;
-  entity.sprite = AddSprite(position, scale, 0.0f, color, 1, 0);
-  entities.push_back(entity);
+  //entities.push_back(entity);
 #endif
-
-
-
-  float startX = -(GRID_WIDTH / 2.0f - 1.0f) * CELL_WIDTH - (CELL_WIDTH / 2.0f);
-  float startY =  (GRID_WIDTH / 2.0f - 1.0f) * CELL_WIDTH + (CELL_WIDTH / 2.0f);
-  v2 topLeft = v2(startX, startY);
-  for(unsigned row = 0; row < GRID_WIDTH; row++)
-  {
-    for(unsigned column = 0; column < GRID_WIDTH; column++)
-    {
-      v2 pos = topLeft;
-      pos.x += column * CELL_WIDTH;
-      pos.y -= row * CELL_WIDTH;
-      cellGrid[row * GRID_WIDTH + column].sprite = AddSprite(pos, v2(CELL_WIDTH, CELL_WIDTH) * 0.99f, 0.0f, Color(1.0f, 1.0f, 0.0f, 0.3f), 0, 0);
-    }
-  }
 }
 
 void UpdatePhysicsTest()
 {
   static v2 lastMousePos = v2();
-  v2 mousePos = MouseWorldPosition();
+  v2 mousePos = window_to_world_space(MouseWindowPosition());
   v2 mouseDelta = mousePos - lastMousePos;
 
   static bool prevLeftMouseState = false;
   bool leftMouseToggledDown = false;
   bool leftMouseToggledUp = false;
-  if(ButtonDown(0) && !prevLeftMouseState) leftMouseToggledDown = true;
-  if(!ButtonDown(0) && prevLeftMouseState) leftMouseToggledUp = true;
+  if(MouseDown(0) && !prevLeftMouseState) leftMouseToggledDown = true;
+  if(!MouseDown(0) && prevLeftMouseState) leftMouseToggledUp = true;
 
 
 
@@ -436,7 +408,7 @@ void UpdatePhysicsTest()
   {
     float mass = 0.0f;
     if(entities[i].invMass != 0.0f) mass = 1.0f / entities[i].invMass;
-    if(!entities[i].stuck) entities[i].velocity.y -= 0.00098f * mass;
+    if(!entities[i].stuck) entities[i].velocity.y -= 0.0000098f * mass;
 
     //entities[i].color = Color(0.4f, 0.0f, 0.5f, 1.0f);
 
@@ -474,91 +446,8 @@ void UpdatePhysicsTest()
   ImGui::InputInt("its", &numIts);
   for(unsigned simIteration = 0; simIteration < numIts; simIteration++)
   {
-
-    // Spatial partitioning
-    time_block("Clearing");
-    for(unsigned i = 0; i < cellGrid.size(); i++) cellGrid[i].entityList.clear();
-    end_time_block();
-
-    time_block("Partitioning");
-    for(unsigned i = 0; i < entities.size(); i++)
-    {
-      v2 worldPos = entities[i].position;
-      int gridColumn;
-      int gridRow;
-      WorldToGrid(worldPos, &gridRow, &gridColumn);
-
-      gridColumn = Clamp(gridColumn, 0, GRID_WIDTH - 1);
-      gridRow = Clamp(gridRow, 0, GRID_WIDTH - 1);
-
-      cellGrid[gridRow * GRID_WIDTH + gridColumn].entityList.push_back(i);
-    }
-    end_time_block();
-
-#if 1
-    for(unsigned i = 0; i < cellGrid.size(); i++)
-    {
-      InstanceData *data = GetSpriteData(cellGrid[i].sprite);
-      if(cellGrid[i].entityList.size() != 0)
-      {
-        data->color = CELL_COLOR;
-        data->color.a += 0.5f;
-      }
-      else
-      {
-        data->color = CELL_COLOR;
-      }
-    }
-#endif
-
-
-
-    time_block("Checking collisions");
     static std::vector<CollisionInfo> collisions;
-
-    static int numChecks = 0;
-#if 0
-    // Go through all cells
-    for(unsigned cell_index = 0; cell_index < cellGrid.size(); cell_index++)
-    {
-      time_block("Go through all cells");
-      Cell cell = cellGrid[cell_index];
-
-      // Go through all entities in the current cell
-      for(unsigned i = 0; i < cell.entityList.size(); i++)
-      {
-        Entity *a = &entities[cell.entityList[i]];
-
-        // Get the rect of cells to check against this entity
-        unsigned startRow;
-        unsigned startColumn;
-        unsigned numRows;
-        unsigned numColumns;
-        GetCellsToCheckIndices(a, &startRow, &startColumn, &numRows, &numColumns);
-
-        // Go through all other cells
-        for(unsigned row = startRow; row <= startRow + numRows; row++)
-        {
-          for(unsigned column = startColumn; column <= startColumn + numColumns; column++)
-          {
-            Cell otherCell = cellGrid[row * GRID_WIDTH + column];
-
-            // Go through each entity in the other current cell
-            for(unsigned j = 0; j < otherCell.entityList.size(); j++)
-            {
-              numChecks++;
-
-              Entity *b = &entities[otherCell.entityList[j]];
-
-              if(a == b) continue;
-              CollideEntities(a, b, &collisions);
-            }
-          }
-        }
-      }
-      end_time_block();
-    }
-#else
+    time_block("Checking collisions");
     for(unsigned i = 0; i < entities.size(); i++)
     {
       Entity &a = entities[i];
@@ -566,96 +455,24 @@ void UpdatePhysicsTest()
 
       for(unsigned j = i + 1; j < entities.size(); j++)
       {
-        numChecks++;
         Entity &b = entities[j];
 
         CollisionInfo info = {};
-
-        if(a.collider.type == Collider::CIRCLE)
-        {
-          // A is circle
-          //
-          switch(b.collider.type)
-          {
-            case Collider::CIRCLE:
-            {
-              if(CircleCircleCollision(&a, &b, &info))
-              {
-                collisions.push_back(info);
-              }
-            } break;
-
-            case Collider::RECT:
-            {
-              if(CircleRectCollision(&a, &b, &info))
-              {
-                collisions.push_back(info);
-              }
-            } break;
-          }
-        }
-        else if(a.collider.type == Collider::RECT)
-        {
-          // A is rect
-          //
-          switch(b.collider.type)
-          {
-            case Collider::CIRCLE:
-            {
-              if(CircleRectCollision(&b, &a, &info))
-              {
-                collisions.push_back(info);
-              }
-            } break;
-
-            case Collider::RECT:
-            {
-              if(RectRectCollision(&a, &b, &info))
-              {
-                collisions.push_back(info);
-              }
-            } break;
-          }
-        }
-
-#if 0
-        if(info.collided)
-        {
-          auto it = std::find(a.collider.currentlyColliding.begin(), a.collider.currentlyColliding.end(), &b.collider);
-          if(it == a.collider.currentlyColliding.end())
-          {
-            a.collider.enteredColliding.push_back(&b.collider);
-            a.collider.currentlyColliding.push_back(&b.collider);
-
-            b.collider.enteredColliding.push_back(&a.collider);
-            b.collider.currentlyColliding.push_back(&a.collider);
-          }
-        }
-        else
-        {
-          auto it = std::find(a.collider.currentlyColliding.begin(), a.collider.currentlyColliding.end(), &b.collider);
-          if(it != a.collider.currentlyColliding.end())
-          {
-            a.collider.currentlyColliding.erase(it);
-            b.collider.currentlyColliding.erase(std::find(b.collider.currentlyColliding.begin(),
-                                                b.collider.currentlyColliding.end(), &a.collider));
-          }
-        }
-#endif
+        CollideEntities(&a, &b, &collisions);
       }
     }
-#endif
-    ImGui::InputInt("Checks", &numChecks);
-    numChecks = 0;
     end_time_block();
+
+
+
 
     time_block("Resolving collisions");
 
     static float percent = 0.5f;
     static float slop = 0.1f;
 
-    ImGui::DragFloat("resolve percent", &percent, 0.01f);
-    ImGui::DragFloat("pen slop", &slop, 0.01f);
+    //ImGui::DragFloat("resolve percent", &percent, 0.01f);
+    //ImGui::DragFloat("pen slop", &slop, 0.01f);
 
     for(unsigned i = 0; i < collisions.size(); i++)
     {
@@ -671,7 +488,7 @@ void UpdatePhysicsTest()
 
         v2 velA = a->velocity;
         v2 velB = b->velocity;
-        v2 n = info.bNormal;
+        v2 n = info.resolveNormal;
         v2 rv = velB - velA;
         float mA = 0.0f;
         if(a->invMass != 0.0f) mA = 1.0f / a->invMass;
@@ -690,7 +507,7 @@ void UpdatePhysicsTest()
         v2 impulse = j * n;
 
 
-        v2 correction = (Max(info.depth - slop, 0.0f) / (a->invMass + b->invMass)) * percent * n; 
+        v2 correction = (max(info.depth - slop, 0.0f) / (a->invMass + b->invMass)) * percent * n; 
         if(!a->stuck)
         {
           a->velocity -= a->invMass * impulse;
@@ -715,11 +532,11 @@ void UpdatePhysicsTest()
   {
     float xBound = 40.0f;
     float yBound = 25.0f;
-#if 1
-    if(entities[i].position.x < -xBound) entities[i].velocity.x = Abs(entities[i].velocity.x);
-    if(entities[i].position.x >  xBound) entities[i].velocity.x = -Abs(entities[i].velocity.x);
-    if(entities[i].position.y < -yBound) entities[i].velocity.y = Abs(entities[i].velocity.y);
-    if(entities[i].position.y >  yBound) entities[i].velocity.y = -Abs(entities[i].velocity.y);
+#if 0
+    if(entities[i].position.x < -xBound) entities[i].velocity.x = absf(entities[i].velocity.x);
+    if(entities[i].position.x >  xBound) entities[i].velocity.x = -absf(entities[i].velocity.x);
+    if(entities[i].position.y < -yBound) entities[i].velocity.y = absf(entities[i].velocity.y);
+    if(entities[i].position.y >  yBound) entities[i].velocity.y = -absf(entities[i].velocity.y);
 #else
     if(entities[i].position.x < -xBound) entities[i].position.x =  xBound;
     if(entities[i].position.x >  xBound) entities[i].position.x = -xBound;
@@ -743,21 +560,33 @@ void UpdatePhysicsTest()
   time_block("Copying graphics data");
   for(unsigned i = 0; i < entities.size(); i++)
   {
-    InstanceData *data = GetSpriteData(entities[i].sprite);
+    Model *model = get_temp_model_pointer(entities[i].model);
 
-    data->position = entities[i].position;
-
-    switch(entities[i].collider.type)
-    {
-      case Collider::CIRCLE: data->scale = v2(entities[i].collider.circle.radius * 2.0f, entities[i].collider.circle.radius * 2.0f); break;
-      case Collider::RECT: data->scale = entities[i].collider.rect.scale; break;
-    }
-
-    data->color = entities[i].color;
+    model->position = v3(entities[i].position, 0.0f);
   }
   end_time_block();
 
   lastMousePos = mousePos;
-  prevLeftMouseState = ButtonDown(0);
+  prevLeftMouseState = MouseDown(0);
+
+  static v2 a = v2(-1.0f,  1.0f);
+  static v2 b = v2( 1.0f, -1.0f);
+  static v2 p = v2(-1.0f, -1.0f);
+  static v2 q = v2( 1.0f,  1.0f);
+  ImGui::DragFloat2("a", &a.x);
+  ImGui::DragFloat2("b", &b.x);
+  ImGui::DragFloat2("p", &p.x);
+  ImGui::DragFloat2("q", &q.x);
+  float t;
+  Color c = Color(1.0f, 0.0f, 0.0f, 1.0f);
+  v2 n;
+  if(LineLineSegmentCollision(a, b, p, q, &n, &t))
+  {
+    c = Color(1.0f, 1.0f, 0.0f, 1.0f);
+    ImGui::InputFloat("t", &t);
+  }
+  immediate_line(v3(a, 0.0f), v3(b, 0.0f), 1.0f, c);
+  immediate_line(v3(p, 0.0f), v3(q, 0.0f), 1.0f, c);
+  //immediate_triangle(v3(a, 0.0f), v3(b, 0.0f), v3(q, 0.0f), Color(1, 0, 0, 1));
 }
 
