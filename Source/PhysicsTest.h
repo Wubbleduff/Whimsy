@@ -1,3 +1,0 @@
-
-void InitPhysicsTest(); 
-void UpdatePhysicsTest();
