@@ -1,7 +1,5 @@
 
 #pragma once
 
-void init_particles();
-
-void update_particles();
+void start_particles();
 
