@@ -106,7 +106,7 @@ void init_particles()
 {
     particle_data = (ParticleData *)calloc(1, sizeof(ParticleData));
 
-    particle_data->num_particles = 1e5;
+    particle_data->num_particles = 1000000;
     particle_data->render_particles = (RenderParticle *)calloc(particle_data->num_particles, sizeof(RenderParticle));
     particle_data->physics_particles = (PhysicsParticle *)calloc(particle_data->num_particles, sizeof(PhysicsParticle));
 
@@ -218,10 +218,10 @@ void start_particles()
             ImGui::Text("average tick seconds: %f", particle_data->average_tick_time);
             ImGui::End();
 
-            start_timer("render");
+            //start_timer("render");
             render();
             float render_secs = end_timer();
-            fprintf(particle_data->log_file, "render ms: %f\n", render_secs * 1e3);
+            //fprintf(particle_data->log_file, "render ms: %f\n", render_secs * 1e3);
 
                 
 
@@ -297,7 +297,7 @@ struct RendererData
 static RendererData *renderer_data;
 
 // {major, minor}
-static const int TARGET_GL_VERSION[2] = {3, 3};
+static const int TARGET_GL_VERSION[2] = {4, 4};
 
 
 
@@ -389,7 +389,7 @@ static void init_imgui()
     //ImGui::StyleColorsClassic();
     
     // Setup Platform/Renderer bindings
-    ImGui_ImplOpenGL3_Init("#version 330 core");
+    ImGui_ImplOpenGL3_Init("#version 440 core");
     ImGui_ImplWin32_Init(get_window_handle());
     check_gl_errors("imgui");
 }
@@ -596,7 +596,7 @@ static void init_renderer()
 
     {
         const char *vert_shader_source =
-            "#version 330 core\n"
+            "#version 440 core\n"
             "layout (location = 0) in vec2 a_pos;\n"
             "layout (location = 1) in vec2 a_uv;\n"
             "uniform mat4 mvp;\n"
@@ -608,7 +608,7 @@ static void init_renderer()
             "}\0";
 
         const char *frag_shader_source =
-            "#version 330 core\n"
+            "#version 440 core\n"
             "uniform sampler2D texture0;\n"
             "in vec2 uvs;"
             "out vec4 frag_color;\n"
@@ -627,7 +627,7 @@ static void init_renderer()
 
     {
         const char *vert_shader_source =
-            "#version 330 core\n"
+            "#version 440 core\n"
             "layout (location = 0) in vec2 a_pos;\n"
             "layout (location = 1) in vec2 a_scale;\n"
             "layout (location = 2) in vec2 a_rotation;\n"
@@ -655,7 +655,7 @@ static void init_renderer()
 #if 1
         const char *geom_shader_source =
         {
-            "#version 330 core\n"
+            "#version 440 core\n"
             "layout (points) in;\n"
             "layout (triangle_strip, max_vertices = 4) out;\n"
             "in VS_OUT\n"
@@ -689,7 +689,7 @@ static void init_renderer()
 #else
         const char *geom_shader_source =
         {
-            "#version 330 core\n"
+            "#version 440 core\n"
             "layout (points) in;\n"
             "layout (points, max_vertices = 1) out;\n"
             //"in mat4 mvp;\n"
@@ -703,7 +703,7 @@ static void init_renderer()
 #endif
 
         const char *frag_shader_source =
-            "#version 330 core\n"
+            "#version 440 core\n"
             "uniform sampler2D texture0;\n"
             "in vec2 uvs;"
             "out vec4 frag_color;\n"
@@ -831,6 +831,18 @@ static void begin_frame()
     
 }
 
+static __declspec(noinline) void do_the_sending()
+{
+    glBufferSubData(GL_ARRAY_BUFFER, 0,
+            sizeof(RenderParticle) * particle_data->num_particles, particle_data->render_particles);
+    check_gl_errors("send particle data");
+}
+
+static __declspec(noinline) void do_the_drawing()
+{
+    glDrawArrays(GL_POINTS, 0, particle_data->num_particles);
+}
+
 static void render()
 {
     glClearColor(0.1f, 0.0f, 0.2f, 1.0f);
@@ -860,15 +872,19 @@ static void render()
     glBindBuffer(GL_ARRAY_BUFFER, renderer_data->particles_vbo);
     check_gl_errors("use vbo");
     
-    glBufferSubData(GL_ARRAY_BUFFER, 0,
-            sizeof(RenderParticle) * particle_data->num_particles, particle_data->render_particles);
-    check_gl_errors("send particle data");
+    start_timer("send data");
+    do_the_sending();
+    float send_data_s = end_timer();
+    fprintf(particle_data->log_file, "send data ms: %f\n", send_data_s * 1e3);
 
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, renderer_data->default_texture);
 
-    glDrawArrays(GL_POINTS, 0, particle_data->num_particles);
+    start_timer("render");
+    do_the_drawing();
+    float render_s = end_timer();
+    fprintf(particle_data->log_file, "render ms: %f\n", render_s * 1e3);
 
     check_gl_errors("draw");
  
