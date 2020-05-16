@@ -33,8 +33,6 @@
 
 
 
-
-
 void init_renderer();
 void shutdown_renderer();
 void begin_frame();
@@ -76,6 +74,8 @@ static ParticleData *particle_data;
 static bool running = false;
 static const int TIME_BUFFER_COUNT = 1000;
 
+static const int NUM_PARTICLES = 100000;
+
 
 
 void reset_particle_positions()
@@ -106,7 +106,7 @@ void init_particles()
 {
     particle_data = (ParticleData *)calloc(1, sizeof(ParticleData));
 
-    particle_data->num_particles = 1000000;
+    particle_data->num_particles = NUM_PARTICLES;
     particle_data->render_particles = (RenderParticle *)calloc(particle_data->num_particles, sizeof(RenderParticle));
     particle_data->physics_particles = (PhysicsParticle *)calloc(particle_data->num_particles, sizeof(PhysicsParticle));
 
@@ -129,13 +129,26 @@ void update_particles()
         RenderParticle *render = &(particle_data->render_particles[i]);
         PhysicsParticle *physics = &(particle_data->physics_particles[i]);
 
+        v2 to_mouse = mouse_pos - render->position;
         if(mouse_state(0))
         {
-            v2 to_mouse = mouse_pos - render->position;
             //p->velocity += unit(to_mouse) * 0.01f;
             v2 direction = unit(to_mouse);
             float mag = 1.0f / (length(to_mouse)*length(to_mouse));
             physics->velocity += direction * mag * 0.001f;
+        }
+        if(key_state('W'))
+        {
+          v2 direction = unit(to_mouse);
+          float mag = length(to_mouse);
+          physics->velocity += direction * mag * 0.001f;
+        }
+
+        if(key_state('E'))
+        {
+          v2 direction = unit(to_mouse);
+          float mag = length(to_mouse) * length(to_mouse);
+          physics->velocity += direction * mag * 0.001f;
         }
 
 
@@ -144,13 +157,13 @@ void update_particles()
         render->position += physics->velocity;
     }
 
-    ImGui::Begin("E");
-    //if(key_toggled_down('R'))
-    if(ImGui::Button("Reset"))
+    //ImGui::Begin("E");
+    if(key_toggled_down('R'))
+    //if(ImGui::Button("Reset"))
     {
         reset_particle_positions();
     }
-    ImGui::End();
+    //ImGui::End();
 }
 
 
@@ -201,9 +214,9 @@ void start_particles()
 
         int update_count = 0;
         float dt = get_dt();
-        //if(dt >= 0.033f) dt = 0.033f;
+        if(dt >= 0.033f) dt = 0.033f;
         particle_data->update_timer += dt;
-        //while(particle_data->update_timer >= FRAME_TIME && update_count < MAX_UPDATES)
+        while(particle_data->update_timer >= FRAME_TIME && update_count < MAX_UPDATES)
         {
             start_timer("tick");
 
@@ -271,6 +284,7 @@ void start_particles()
 
 
 
+static const int NUM_VBOS = 2;
 struct RendererData
 {
     FILE *log;
@@ -288,9 +302,11 @@ struct RendererData
     GLuint quad_ebo;
     GLuint quad_shader_program;
 
-    GLuint particles_vao;
-    GLuint particles_vbo;
     GLuint particles_shader_program;
+
+    GLuint particles_vao;
+    GLuint particles_vbos[NUM_VBOS];
+    int current_vbo_index;
 
     GLuint default_texture;
 };
@@ -492,6 +508,25 @@ static GLuint make_shader(const char *vert_source, const char *frag_source, cons
     return program;
 }
 
+
+
+static void set_particle_attrib_pointers()
+{
+    float stride = sizeof(RenderParticle);
+    // Position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, stride, (void *)0);
+    glEnableVertexAttribArray(0);
+    // Scale
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void *)(sizeof(v2)));
+    glEnableVertexAttribArray(1);
+    // Rotation
+    glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, stride, (void *)(2 * sizeof(v2)));
+    glEnableVertexAttribArray(2);
+    // Color
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, stride, (void *)(2 * sizeof(v2) + 1));
+    glEnableVertexAttribArray(3);
+}
+
 static void init_renderer()
 {
     renderer_data = (RendererData *)calloc(1, sizeof(RendererData));
@@ -564,26 +599,20 @@ static void init_renderer()
         glBindVertexArray(renderer_data->particles_vao);
         check_gl_errors("making vao");
 
-        glGenBuffers(1, &renderer_data->particles_vbo);
-        check_gl_errors("making vbo");
 
-        glBindBuffer(GL_ARRAY_BUFFER, renderer_data->particles_vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(RenderParticle) * particle_data->num_particles, particle_data->render_particles, GL_DYNAMIC_DRAW);
-        check_gl_errors("send vbo data");
+        for(int i = 0; i < NUM_VBOS; i++)
+        {
+            glGenBuffers(1, &renderer_data->particles_vbos[i]);
+            check_gl_errors("making vbo");
 
-        float stride = sizeof(RenderParticle);
-        // Position
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, stride, (void *)0);
-        glEnableVertexAttribArray(0);
-        // Scale
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void *)(sizeof(v2)));
-        glEnableVertexAttribArray(1);
-        // Rotation
-        glVertexAttribPointer(2, 1, GL_FLOAT, GL_FALSE, stride, (void *)(2 * sizeof(v2)));
-        glEnableVertexAttribArray(2);
-        // Color
-        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, stride, (void *)(2 * sizeof(v2) + 1));
-        glEnableVertexAttribArray(3);
+            glBindBuffer(GL_ARRAY_BUFFER, renderer_data->particles_vbos[i]);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(RenderParticle) * particle_data->num_particles,
+                    0, GL_DYNAMIC_DRAW);
+            check_gl_errors("send vbo data");
+        }
+        renderer_data->current_vbo_index = 0;
+
+        set_particle_attrib_pointers();
         check_gl_errors("vertex attrib pointer");
     }
 
@@ -845,7 +874,8 @@ static __declspec(noinline) void do_the_drawing()
 
 static void render()
 {
-    glClearColor(0.1f, 0.0f, 0.2f, 1.0f);
+    //glClearColor(0.1f, 0.0f, 0.2f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
@@ -869,8 +899,16 @@ static void render()
     glBindVertexArray(renderer_data->particles_vao);
     check_gl_errors("use vao");
 
-    glBindBuffer(GL_ARRAY_BUFFER, renderer_data->particles_vbo);
-    check_gl_errors("use vbo");
+
+
+
+    // Rotate VBOs
+    //renderer_data->current_vbo_index = (renderer_data->current_vbo_index + 1) % NUM_VBOS;
+    //GLuint next_vbo = renderer_data->particles_vbos[renderer_data->current_vbo_index];
+    //glBindBuffer(GL_ARRAY_BUFFER, next_vbo);
+    //set_particle_attrib_pointers();
+    //check_gl_errors("rotate vbos");
+
     
     start_timer("send data");
     do_the_sending();

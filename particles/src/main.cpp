@@ -75,13 +75,24 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             {
                 platform_data->want_to_close = true;
             }
-            record_key_event(wParam, false);
+            record_key_event(wParam, true);
         }
         break;
         case WM_KEYUP:   { record_key_event(wParam, false); break; }
 
         case WM_LBUTTONDOWN: { record_mouse_event(0, true);  break; }
         case WM_LBUTTONUP:   { record_mouse_event(0, false); break; }
+
+        // idk
+        case WM_ACTIVATE:
+        case WM_ACTIVATEAPP:
+        case WM_SETFOCUS:
+        case WM_WINDOWPOSCHANGING:
+        {
+            result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, platform_data->window_width, platform_data->window_height, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+            //result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+        }
+        break;
 
         default:
         {
@@ -115,45 +126,61 @@ void init_platform()
 
 #define TRANSPARENT_WINDOWx
 
+    RECT rect;
+    BOOL result = SystemParametersInfoA(SPI_GETWORKAREA, 0, &rect, 0);
+    unsigned window_width = rect.right;
+    unsigned window_height = rect.bottom;
+
     // Create the window
 #ifdef TRANSPARENT_WINDOW
-    //unsigned window_width = GetSystemMetrics(SM_CXSCREEN);
-    //unsigned window_width = GetSystemMetrics(SM_CYSCREEN);
-    unsigned window_width = 1024;
-    unsigned window_height = 768;
     platform_data->window_handle = CreateWindowEx(WS_EX_COMPOSITED,   // Extended style
-            window_class.lpszClassName,        // Class name
-            "First",                           // Window name
-            WS_POPUP | WS_VISIBLE,             // Style of the window
-            0,                                 // Initial X position
-            0,                                 // Initial Y position
-            window_width,                     // Initial width
-            window_height,                    // Initial height 
-            0,                                 // Handle to the window parent
-            0,                                 // Handle to a menu
-            platform_data.app_instance,        // Handle to an instance
-            0);                                // Pointer to a CLIENTCTREATESTRUCT
+        window_class.lpszClassName,        // Class name
+        "First",                           // Window name
+        WS_POPUP | WS_VISIBLE,             // Style of the window
+        0,                                 // Initial X position
+        0,                                 // Initial Y position
+        window_width,                      // Initial width
+        window_height,                     // Initial height 
+        0,                                 // Handle to the window parent
+        0,                                 // Handle to a menu
+        platform_data->app_instance,       // Handle to an instance
+        0);                                // Pointer to a CLIENTCTREATESTRUCT
 
-    BOOL result = SetWindowLong(platform_data->window_handle, GWL_EXSTYLE, WS_EX_LAYERED) ;
+    result = SetWindowLong(platform_data->window_handle, GWL_EXSTYLE, WS_EX_LAYERED) ;
     result = SetLayeredWindowAttributes(platform_data->window_handle, RGB(0, 0, 0), 10, LWA_COLORKEY);
 #else
-    unsigned width = 1920;
-    float ratio = 16.0f / 9.0f;
-    unsigned window_width = width;
-    unsigned window_height = (unsigned)((1.0f / ratio) * width);
-    platform_data->window_handle = CreateWindowEx(0,                  // Extended style
+    platform_data->window_handle = CreateWindowEx(0,   // Extended style
+        window_class.lpszClassName,        // Class name
+        "First",                           // Window name
+        WS_POPUP | WS_VISIBLE,             // Style of the window
+        0,                                 // Initial X position
+        0,                                 // Initial Y position
+        window_width,                      // Initial width
+        window_height,                     // Initial height 
+        0,                                 // Handle to the window parent
+        0,                                 // Handle to a menu
+        platform_data->app_instance,       // Handle to an instance
+        0);                                // Pointer to a CLIENTCTREATESTRUCT
+    
+#endif
+
+
+    /*
+    This is a normal window with a toolbar thing
+        platform_data->window_handle = CreateWindowEx(0,                  // Extended style
             window_class.lpszClassName,        // Class name
             "First",                           // Window name
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,  // Style of the window
             0,                                 // Initial X position
             0,                                 // Initial Y position
             window_width,                     // Initial width
-            window_height,                    // Initial height 
+            window_height,                    // Initial height
             0,                                 // Handle to the window parent
             0,                                 // Handle to a menu
             platform_data->app_instance,        // Handle to an instance
-            0);                                // Pointer to a CLIENTCTREATESTRUCT
-#endif
+            0);
+    */
+
     if(!platform_data->window_handle) { return; }
 
 
@@ -162,6 +189,8 @@ void init_platform()
 
     platform_data->window_width = client_rect.right;
     platform_data->window_height = client_rect.bottom;
+
+    result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER);
 
     QueryPerformanceCounter(&platform_data->previous_time);
 }
