@@ -19,14 +19,14 @@ DEBUG_LINK_FLAGS=/DEBUG:FULL /OUT:$(INTERMEDIATE)$(EXE)
 RELEASE_COMPILE_FLAGS=/c /O2 /EHsc /Fo$(INTERMEDIATE)
 RELEASE_LINK_FLAGS=/DEBUG:NONE /OUT:$(INTERMEDIATE)$(EXE)
 
-debug: intermediate run_tree
+debug: | intermediate run_tree
 	cl $(DEBUG_COMPILE_FLAGS) $(INCLUDE_DIRS) $(SOURCE)
 	link $(DEBUG_LINK_FLAGS) $(LIBS) $(INTERMEDIATE)*.obj
 	cp -f $(INTERMEDIATE)$(EXE) $(RUN_TREE)
 	cp -f $(INTERMEDIATE)$(PDB) $(RUN_TREE)
 	cp -rf textures/ run_tree
 
-release: intermediate run_tree
+release: | intermediate run_tree
 	cl $(RELEASE_COMPILE_FLAGS) $(INCLUDE_DIRS) $(SOURCE)
 	link $(RELEASE_LINK_FLAGS) $(LIBS) $(INTERMEDIATE)*.obj
 	cp -f $(INTERMEDIATE)$(EXE) $(RUN_TREE)
