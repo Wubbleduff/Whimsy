@@ -40,9 +40,10 @@ clean: intermediate
 	rm -f $(INTERMEDIATE)*.ilk
 
 
+# Building directory rules
 intermediate:
-	mkdir intermediate
+	mkdir $(INTERMEDIATE)
 
 run_tree:
-	mkdir run_tree
+	mkdir $(RUN_TREE)
 
