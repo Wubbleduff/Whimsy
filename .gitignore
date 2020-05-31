@@ -4,4 +4,6 @@ x64
 Debug
 Release
 .vs
+intermediate
+run_tree
 
