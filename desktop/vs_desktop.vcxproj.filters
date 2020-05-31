@@ -91,5 +91,8 @@
     <ClInclude Include="src\desktop.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\common_graphics.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

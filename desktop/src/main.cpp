@@ -1,11 +1,16 @@
 
 #include "platform.h"
-#include "particles.h"
+#include "desktop.h"
 #include "input.h"
 
 #include "imgui.h"
 
 #include <windows.h>
+
+
+
+#define DEBUG_WINDOW
+
 
 
 struct PlatformData
@@ -14,6 +19,7 @@ struct PlatformData
     HWND window_handle;
     int window_width;
     int window_height;
+
 
     LARGE_INTEGER previous_time;
 
@@ -29,8 +35,10 @@ static PlatformData *platform_data;
 
 HWND get_window_handle() { return platform_data->window_handle; }
 
-int get_window_width()   { return platform_data->window_width;  }
-int get_window_height()  { return platform_data->window_height; }
+int get_screen_width()   { return platform_data->window_width;  }
+int get_screen_height()  { return platform_data->window_height; }
+float get_aspect_ratio() { return (float)platform_data->window_width / platform_data->window_height; }
+HDC get_device_context() { return GetDC(platform_data->window_handle); }
 
 bool want_to_close() { return platform_data->want_to_close; }
 
@@ -43,7 +51,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
 {
     if(ImGui_ImplWin32_WndProcHandler(window, message, wParam, lParam)) return true;
 
-    LRESULT result = 0;
+    LRESULT result = 0; 
 
     switch (message)
     {
@@ -89,8 +97,11 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         case WM_SETFOCUS:
         case WM_WINDOWPOSCHANGING:
         {
+#ifndef DEBUG_WINDOW
             result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, platform_data->window_width, platform_data->window_height, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
-            //result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+#endif
+
+            // result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
         }
         break;
 
@@ -122,32 +133,25 @@ void init_platform()
 
     if(!RegisterClass(&window_class)) { return; }
 
-
-
-#define TRANSPARENT_WINDOWx
-
     RECT rect;
     BOOL result = SystemParametersInfoA(SPI_GETWORKAREA, 0, &rect, 0);
     unsigned window_width = rect.right;
     unsigned window_height = rect.bottom;
 
     // Create the window
-#ifdef TRANSPARENT_WINDOW
-    platform_data->window_handle = CreateWindowEx(WS_EX_COMPOSITED,   // Extended style
-        window_class.lpszClassName,        // Class name
-        "First",                           // Window name
-        WS_POPUP | WS_VISIBLE,             // Style of the window
-        0,                                 // Initial X position
-        0,                                 // Initial Y position
-        window_width,                      // Initial width
-        window_height,                     // Initial height 
-        0,                                 // Handle to the window parent
-        0,                                 // Handle to a menu
-        platform_data->app_instance,       // Handle to an instance
-        0);                                // Pointer to a CLIENTCTREATESTRUCT
-
-    result = SetWindowLong(platform_data->window_handle, GWL_EXSTYLE, WS_EX_LAYERED) ;
-    result = SetLayeredWindowAttributes(platform_data->window_handle, RGB(0, 0, 0), 10, LWA_COLORKEY);
+#ifdef DEBUG_WINDOW
+    platform_data->window_handle = CreateWindowEx(0,                  // Extended style
+      window_class.lpszClassName,        // Class name
+      "First",                           // Window name
+      WS_OVERLAPPEDWINDOW | WS_VISIBLE,  // Style of the window
+      0,                                 // Initial X position
+      0,                                 // Initial Y position
+      window_width,                     // Initial width
+      window_height,                    // Initial height
+      0,                                 // Handle to the window parent
+      0,                                 // Handle to a menu
+      platform_data->app_instance,        // Handle to an instance
+      0);
 #else
     platform_data->window_handle = CreateWindowEx(0,   // Extended style
         window_class.lpszClassName,        // Class name
@@ -161,24 +165,27 @@ void init_platform()
         0,                                 // Handle to a menu
         platform_data->app_instance,       // Handle to an instance
         0);                                // Pointer to a CLIENTCTREATESTRUCT
-    
 #endif
 
-
     /*
-    This is a normal window with a toolbar thing
-        platform_data->window_handle = CreateWindowEx(0,                  // Extended style
-            window_class.lpszClassName,        // Class name
-            "First",                           // Window name
-            WS_OVERLAPPEDWINDOW | WS_VISIBLE,  // Style of the window
-            0,                                 // Initial X position
-            0,                                 // Initial Y position
-            window_width,                     // Initial width
-            window_height,                    // Initial height
-            0,                                 // Handle to the window parent
-            0,                                 // Handle to a menu
-            platform_data->app_instance,        // Handle to an instance
-            0);
+
+    This is a transparent window
+        platform_data->window_handle = CreateWindowEx(WS_EX_COMPOSITED,   // Extended style
+        window_class.lpszClassName,        // Class name
+        "First",                           // Window name
+        WS_POPUP | WS_VISIBLE,             // Style of the window
+        0,                                 // Initial X position
+        0,                                 // Initial Y position
+        window_width,                      // Initial width
+        window_height,                     // Initial height
+        0,                                 // Handle to the window parent
+        0,                                 // Handle to a menu
+        platform_data->app_instance,       // Handle to an instance
+        0);                                // Pointer to a CLIENTCTREATESTRUCT
+
+    result = SetWindowLong(platform_data->window_handle, GWL_EXSTYLE, WS_EX_LAYERED) ;
+    result = SetLayeredWindowAttributes(platform_data->window_handle, RGB(0, 0, 0), 10, LWA_COLORKEY);
+
     */
 
     if(!platform_data->window_handle) { return; }
@@ -190,7 +197,9 @@ void init_platform()
     platform_data->window_width = client_rect.right;
     platform_data->window_height = client_rect.bottom;
 
+#ifndef DEBUG_WINDOW
     result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER);
+#endif
 
     QueryPerformanceCounter(&platform_data->previous_time);
 }
