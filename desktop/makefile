@@ -33,7 +33,7 @@ release: | intermediate run_tree
 	#cp -f $(INTERMEDIATE)$(PDB) $(RUN_TREE)
 	cp -rf textures/ run_tree
 
-clean: intermediate
+clean: | intermediate
 	rm -f $(INTERMEDIATE)*.obj
 	rm -f $(INTERMEDIATE)*.exe
 	rm -f $(INTERMEDIATE)*.pdb
