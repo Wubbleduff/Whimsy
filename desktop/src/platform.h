@@ -20,3 +20,13 @@ float get_dt();
 
 v2 mouse_screen_position();
 
+
+
+char *read_file_as_string(const char *path);
+
+
+
+#define log_error(format, ...) log_error_fn(__FILE__, __LINE__, format, __VA_ARGS__);
+void log_error_fn(const char *file, int line, const char *format, ...);
+
+

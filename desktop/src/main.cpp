@@ -6,6 +6,8 @@
 #include "imgui.h"
 
 #include <windows.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 
 
@@ -19,6 +21,8 @@ struct PlatformData
     HWND window_handle;
     int window_width;
     int window_height;
+
+    FILE *log;
 
 
     LARGE_INTEGER previous_time;
@@ -202,6 +206,8 @@ void init_platform()
 #endif
 
     QueryPerformanceCounter(&platform_data->previous_time);
+
+    platform_data->log = fopen("output/log.txt", "w");
 }
 
 void platform_events()
@@ -247,9 +253,44 @@ v2 mouse_screen_position()
   return v2(window_client_pos.x, window_client_pos.y);
 }
 
+char *read_file_as_string(const char *path)
+{
+    FILE *file = fopen(path, "rb");
+    if(file == nullptr) return nullptr;
+
+    fseek(file, 0L, SEEK_END);
+    int size = ftell(file);
+    fseek(file, 0L, SEEK_SET);
+
+    char *buffer = (char *)malloc(size + 1);
+
+    fread(buffer, size, 1, file);
+
+    buffer[size] = '\0';
+
+    return buffer;
+}
+
+
+void log_error_fn(const char *file, int line, const char *format, ...)
+{
+    fprintf(platform_data->log, "-- ERROR : ");
+    fprintf(platform_data->log, "%s : %d\n", file, line);
+
+    va_list args;
+    va_start(args, format);
+    vfprintf(platform_data->log, format, args);
+    va_end(args);
+
+    fprintf(platform_data->log, "\n");
+
+    fflush(platform_data->log);
+}
+
+
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-  instance = hInstance;
-  start_desktop();
+    instance = hInstance;
+    start_desktop();
 }
 

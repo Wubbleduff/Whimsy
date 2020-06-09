@@ -7,7 +7,7 @@ EXE=desktop.exe
 
 PDB=desktop.pdb
 
-SOURCE=src/main.cpp src/desktop.cpp src/input.cpp src/particles.cpp src/profiling.cpp lib/imgui/imgui.cpp lib/imgui/imgui_demo.cpp lib/imgui/imgui_draw.cpp lib/imgui/imgui_widgets.cpp lib/imgui/examples/imgui_impl_opengl3.cpp lib/imgui/examples/imgui_impl_win32.cpp
+SOURCE=src/main.cpp src/desktop.cpp src/input.cpp src/stars.cpp src/profiling.cpp src/common_graphics.cpp lib/imgui/imgui.cpp lib/imgui/imgui_demo.cpp lib/imgui/imgui_draw.cpp lib/imgui/imgui_widgets.cpp lib/imgui/examples/imgui_impl_opengl3.cpp lib/imgui/examples/imgui_impl_win32.cpp
 
 INCLUDE_DIRS=/I"lib/glew-2.1.0/include" /I"lib/imgui" /I"lib/stb"
 
@@ -25,6 +25,7 @@ debug: | intermediate run_tree
 	cp -f $(INTERMEDIATE)$(EXE) $(RUN_TREE)
 	cp -f $(INTERMEDIATE)$(PDB) $(RUN_TREE)
 	cp -rf textures/ run_tree
+	cp -rf shaders/ run_tree
 
 release: | intermediate run_tree
 	cl $(RELEASE_COMPILE_FLAGS) $(INCLUDE_DIRS) $(SOURCE)
@@ -32,6 +33,7 @@ release: | intermediate run_tree
 	cp -f $(INTERMEDIATE)$(EXE) $(RUN_TREE)
 	#cp -f $(INTERMEDIATE)$(PDB) $(RUN_TREE)
 	cp -rf textures/ run_tree
+	cp -rf shaders/ run_tree
 
 clean: | intermediate
 	rm -f $(INTERMEDIATE)*.obj

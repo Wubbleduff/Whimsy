@@ -1,0 +1,52 @@
+
+#version 440 core
+//#version 310 es
+
+// Declare the custom data type, which represents one point of a circle.
+// And this is vertex position and colour respectively.
+// As you may already noticed that will define the interleaved data within
+// buffer which is Vertex|Colour|Vertex|Colour|…
+/*
+struct AttribData
+{
+    vec2 position;
+    vec2 scale;
+    vec4 color;
+    float rotation;
+};
+*/
+struct AttribData
+{
+    vec4 a;
+    vec4 b;
+};
+
+// Declare input/output buffer from/to wich we will read/write data.
+// In this particular shader we only write data into the buffer.
+// If you do not want your data to be aligned by compiler try to use:
+// packed or shared instead of std140 keyword.
+// We also bind the buffer to index 0. You need to set the buffer binding
+// in the range [0..3] – this is the minimum range approved by Khronos.
+// Notice that various platforms might support more indices than that.
+layout(std140, binding = 0) buffer dest_buffer
+{
+    AttribData data[];
+} out_buffer;
+
+// Declare what size is the group. In our case is 8x8, which gives
+// 64 group size.
+//layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+// Declare main program function which is executed once
+// glDispatchCompute is called from the application.
+void main()
+{
+    uint gid = gl_GlobalInvocationID.x;
+
+    //outBuffer.data[gid].position = vec2(0.1f, 0.0f);
+    //out_buffer.data[gid].position.x = gid;
+    //out_buffer.data[gid].rotation += 0.1f;
+    out_buffer.data[gid].a.x += 0.01f;
+}
+
