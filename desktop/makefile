@@ -7,16 +7,20 @@ EXE=desktop.exe
 
 PDB=desktop.pdb
 
-SOURCE=src/main.cpp src/desktop.cpp src/input.cpp src/stars.cpp src/profiling.cpp src/common_graphics.cpp lib/imgui/imgui.cpp lib/imgui/imgui_demo.cpp lib/imgui/imgui_draw.cpp lib/imgui/imgui_widgets.cpp lib/imgui/examples/imgui_impl_opengl3.cpp lib/imgui/examples/imgui_impl_win32.cpp
+#SOURCE=src/main.cpp src/desktop.cpp src/input.cpp src/stars.cpp src/profiling.cpp src/common_graphics.cpp src/shader.cpp lib/imgui/imgui.cpp lib/imgui/imgui_demo.cpp lib/imgui/imgui_draw.cpp lib/imgui/imgui_widgets.cpp lib/imgui/examples/imgui_impl_opengl3.cpp lib/imgui/examples/imgui_impl_win32.cpp
+SOURCE=src/whole_ass_source.cpp lib/imgui/imgui.cpp lib/imgui/imgui_draw.cpp lib/imgui/examples/imgui_impl_opengl3.cpp lib/imgui/examples/imgui_impl_win32.cpp
 
-INCLUDE_DIRS=/I"lib/glew-2.1.0/include" /I"lib/imgui" /I"lib/stb"
+INCLUDE_DIRS=/I"lib/glew-2.1.0/include" /I"lib/imgui" /I"lib/stb" /I"lib/easy_profiler-v2.1.0-msvc15-win64/include"
 
-LIBS=user32.lib gdi32.lib shell32.lib opengl32.lib lib/glew-2.1.0/lib/Release/x64/glew32.lib
+LIBS=user32.lib gdi32.lib shell32.lib opengl32.lib lib/glew-2.1.0/lib/Release/x64/glew32.lib lib/easy_profiler-v2.1.0-msvc15-win64/lib/easy_profiler.lib
 
-DEBUG_COMPILE_FLAGS=/c /Z7 /EHsc /Fo$(INTERMEDIATE)
+DEBUG_MACROS=/DBUILD_WITH_EASY_PROFILER
+RELEASE_MACROS=/DBUILD_WITH_EASY_PROFILER
+
+DEBUG_COMPILE_FLAGS=/c /Z7 /EHsc /Fo$(INTERMEDIATE) $(DEBUG_MACROS)
 DEBUG_LINK_FLAGS=/DEBUG:FULL /OUT:$(INTERMEDIATE)$(EXE)
 
-RELEASE_COMPILE_FLAGS=/c /O2 /EHsc /Fo$(INTERMEDIATE)
+RELEASE_COMPILE_FLAGS=/c /O2 /EHsc /Fo$(INTERMEDIATE) $(RELEASE_MACROS)
 RELEASE_LINK_FLAGS=/DEBUG:NONE /OUT:$(INTERMEDIATE)$(EXE)
 
 debug: | intermediate run_tree

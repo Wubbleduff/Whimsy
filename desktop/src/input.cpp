@@ -1,6 +1,7 @@
 
 #include "input.h"
 
+#include "easy/profiler.h"
 #include <windows.h>
 #include <assert.h>
 
@@ -37,13 +38,15 @@ void record_mouse_event(int vk_code, bool state)
 
 void read_input()
 {
-  // Read keyboard input
-  memcpy(input_data->previous_key_states, input_data->current_key_states, sizeof(bool) * MAX_KEYS);
-  memcpy(input_data->current_key_states, input_data->event_key_states, sizeof(bool) * MAX_KEYS);
+    EASY_FUNCTION();
 
-  // Read mouse input
-  memcpy(input_data->previous_mouse_states, input_data->current_mouse_states, sizeof(bool) * MAX_MOUSE_KEYS);
-  memcpy(input_data->current_mouse_states, input_data->event_mouse_states, sizeof(bool) * MAX_MOUSE_KEYS);
+        // Read keyboard input
+    memcpy(input_data->previous_key_states, input_data->current_key_states, sizeof(bool) * MAX_KEYS);
+    memcpy(input_data->current_key_states, input_data->event_key_states, sizeof(bool) * MAX_KEYS);
+
+    // Read mouse input
+    memcpy(input_data->previous_mouse_states, input_data->current_mouse_states, sizeof(bool) * MAX_MOUSE_KEYS);
+    memcpy(input_data->current_mouse_states, input_data->event_mouse_states, sizeof(bool) * MAX_MOUSE_KEYS);
 }
 
 

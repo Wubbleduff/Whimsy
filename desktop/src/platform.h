@@ -15,6 +15,7 @@ HWND get_window_handle();
 HDC get_device_context();
 int get_screen_width();
 int get_screen_height();
+int get_monitor_frequency();
 float get_aspect_ratio();
 float get_dt();
 

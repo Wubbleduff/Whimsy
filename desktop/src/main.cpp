@@ -11,7 +11,7 @@
 
 
 
-#define DEBUG_WINDOW
+#define DEBUG_WINDOWx
 
 
 
@@ -41,6 +41,40 @@ HWND get_window_handle() { return platform_data->window_handle; }
 
 int get_screen_width()   { return platform_data->window_width;  }
 int get_screen_height()  { return platform_data->window_height; }
+int get_monitor_frequency()
+{
+    int result = 0;
+    BOOL devices_result;
+
+    DISPLAY_DEVICEA display_device;
+    display_device.cb = sizeof(DISPLAY_DEVICEA);
+    DWORD flags = EDD_GET_DEVICE_INTERFACE_NAME;
+    DWORD device_num = 0;
+    do
+    {
+        devices_result = EnumDisplayDevicesA(NULL, device_num, &display_device, flags);
+        device_num++;
+        if(devices_result)
+        {
+            BOOL settings_result;
+            DEVMODEA dev_mode;
+            dev_mode.dmSize = sizeof(DEVMODEA);
+            dev_mode.dmDriverExtra = 0;
+
+            settings_result = EnumDisplaySettingsA(display_device.DeviceName, ENUM_CURRENT_SETTINGS, &dev_mode);
+            if(settings_result)
+            {
+                int freq = dev_mode.dmDisplayFrequency;
+                if(freq > result)
+                {
+                    result = freq;
+                }
+            }
+        }
+    } while(devices_result);
+
+    return result;
+}
 float get_aspect_ratio() { return (float)platform_data->window_width / platform_data->window_height; }
 HDC get_device_context() { return GetDC(platform_data->window_handle); }
 
@@ -137,60 +171,63 @@ void init_platform()
 
     if(!RegisterClass(&window_class)) { return; }
 
+    BOOL result;
     RECT rect;
-    BOOL result = SystemParametersInfoA(SPI_GETWORKAREA, 0, &rect, 0);
+    result = SystemParametersInfoA(SPI_GETWORKAREA, 0, &rect, 0);
     unsigned window_width = rect.right;
     unsigned window_height = rect.bottom;
+    //unsigned window_width = GetSystemMetrics(SM_CXSCREEN);
+    //unsigned window_height = GetSystemMetrics(SM_CYSCREEN);
 
     // Create the window
 #ifdef DEBUG_WINDOW
     platform_data->window_handle = CreateWindowEx(0,                  // Extended style
-      window_class.lpszClassName,        // Class name
-      "First",                           // Window name
-      WS_OVERLAPPEDWINDOW | WS_VISIBLE,  // Style of the window
-      0,                                 // Initial X position
-      0,                                 // Initial Y position
-      window_width,                     // Initial width
-      window_height,                    // Initial height
-      0,                                 // Handle to the window parent
-      0,                                 // Handle to a menu
-      platform_data->app_instance,        // Handle to an instance
-      0);
+            window_class.lpszClassName,        // Class name
+            "",                           // Window name
+            WS_OVERLAPPEDWINDOW | WS_VISIBLE,  // Style of the window
+            0,                                 // Initial X position
+            0,                                 // Initial Y position
+            window_width,                     // Initial width
+            window_height,                    // Initial height
+            0,                                 // Handle to the window parent
+            0,                                 // Handle to a menu
+            platform_data->app_instance,        // Handle to an instance
+            0);
 #else
     platform_data->window_handle = CreateWindowEx(0,   // Extended style
-        window_class.lpszClassName,        // Class name
-        "First",                           // Window name
-        WS_POPUP | WS_VISIBLE,             // Style of the window
-        0,                                 // Initial X position
-        0,                                 // Initial Y position
-        window_width,                      // Initial width
-        window_height,                     // Initial height 
-        0,                                 // Handle to the window parent
-        0,                                 // Handle to a menu
-        platform_data->app_instance,       // Handle to an instance
-        0);                                // Pointer to a CLIENTCTREATESTRUCT
+            window_class.lpszClassName,        // Class name
+            "",                           // Window name
+            WS_POPUP | WS_VISIBLE,             // Style of the window
+            0,                                 // Initial X position
+            0,                                 // Initial Y position
+            window_width,                      // Initial width
+            window_height,                     // Initial height 
+            0,                                 // Handle to the window parent
+            0,                                 // Handle to a menu
+            platform_data->app_instance,       // Handle to an instance
+            0);                                // Pointer to a CLIENTCTREATESTRUCT
 #endif
 
     /*
 
-    This is a transparent window
-        platform_data->window_handle = CreateWindowEx(WS_EX_COMPOSITED,   // Extended style
-        window_class.lpszClassName,        // Class name
-        "First",                           // Window name
-        WS_POPUP | WS_VISIBLE,             // Style of the window
-        0,                                 // Initial X position
-        0,                                 // Initial Y position
-        window_width,                      // Initial width
-        window_height,                     // Initial height
-        0,                                 // Handle to the window parent
-        0,                                 // Handle to a menu
-        platform_data->app_instance,       // Handle to an instance
-        0);                                // Pointer to a CLIENTCTREATESTRUCT
+       This is a transparent window
+       platform_data->window_handle = CreateWindowEx(WS_EX_COMPOSITED,   // Extended style
+       window_class.lpszClassName,        // Class name
+       "",                           // Window name
+       WS_POPUP | WS_VISIBLE,             // Style of the window
+       0,                                 // Initial X position
+       0,                                 // Initial Y position
+       window_width,                      // Initial width
+       window_height,                     // Initial height
+       0,                                 // Handle to the window parent
+       0,                                 // Handle to a menu
+       platform_data->app_instance,       // Handle to an instance
+       0);                                // Pointer to a CLIENTCTREATESTRUCT
 
-    result = SetWindowLong(platform_data->window_handle, GWL_EXSTYLE, WS_EX_LAYERED) ;
-    result = SetLayeredWindowAttributes(platform_data->window_handle, RGB(0, 0, 0), 10, LWA_COLORKEY);
+       result = SetWindowLong(platform_data->window_handle, GWL_EXSTYLE, WS_EX_LAYERED) ;
+       result = SetLayeredWindowAttributes(platform_data->window_handle, RGB(0, 0, 0), 10, LWA_COLORKEY);
 
-    */
+*/
 
     if(!platform_data->window_handle) { return; }
 

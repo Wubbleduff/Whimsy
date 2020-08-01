@@ -15,7 +15,7 @@ void main()
 {
     gl_Position = mvp * vec4(a_pos.x, a_pos.y, 0.0f, 1.0);
     uvs = a_uv;
-};
+}
 
 
 
@@ -26,6 +26,7 @@ void main()
 #version 440 core
 
 uniform sampler2D texture0;
+uniform vec4 blend_color;
 
 in vec2 uvs;
 
@@ -33,8 +34,8 @@ out vec4 frag_color;
 
 void main()
 {
-    frag_color = texture(texture0, uvs);
+    frag_color = texture(texture0, uvs) * blend_color;
     //frag_color = vec4(1, 1, 1, 1);
-};
+}
 
 

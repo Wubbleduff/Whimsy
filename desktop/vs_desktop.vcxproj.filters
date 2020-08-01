@@ -20,9 +20,6 @@
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\particles.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\profiling.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -47,15 +44,21 @@
     <ClCompile Include="src\desktop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\common_graphics.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\shader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\stars.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\input.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="src\my_math.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\particles.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="src\platform.h">
@@ -92,6 +95,15 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="src\common_graphics.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\scene.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\shader.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\stars.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>

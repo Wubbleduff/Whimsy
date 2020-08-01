@@ -1,5 +1,6 @@
 
 #include "common_graphics.h"
+#include "shader.h"
 #include "platform.h"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -11,7 +12,30 @@
 #include <string>
 #include <map>
 
+#include "imgui.h"
 
+
+struct Vertex
+{
+    v2 pos;
+    v2 uv;
+
+    Vertex() {}
+    Vertex(v2 p, v2 u) : pos(p), uv(u) { }
+};
+
+struct Mesh
+{
+    GLuint vao;
+    GLuint vbo;
+};
+
+
+struct Camera
+{
+    v2 position;
+    float width;
+};
 
 struct GraphicsData
 {
@@ -19,8 +43,14 @@ struct GraphicsData
 
     HGLRC gl_context;
 
-    GLuint quad_vao;
-    GLuint quad_shader_program;
+    Camera camera;
+
+    Mesh quad_mesh;
+    Mesh bottom_left_quad_mesh;
+    Mesh triangle_mesh;
+
+    Shader quad_shader;
+    Shader flat_color_shader;
 };
 static GraphicsData *graphics_data;
 // {major, minor}
@@ -28,37 +58,27 @@ static const int TARGET_GL_VERSION[2] = { 4, 4 };
 
 
 
-
-void draw_fullscreen_quad(const char *texture)
-{
-    GLuint texture_handle = get_or_make_texture(texture);
-    draw_fullscreen_quad(texture_handle);
-}
-
-void draw_fullscreen_quad(GLuint texture_handle)
-{
-    draw_screen_quad(v2(), v2(1.0f, 1.0f), texture_handle);
-}
-
-void draw_screen_quad(v2 position, v2 scale, GLuint texture_handle)
+static void draw_quad_with_mesh(GLuint texture_handle, v2 position, v2 scale, Mesh *mesh)
 {
     // use quad mesh
-    glBindVertexArray(graphics_data->quad_vao);
+    glBindVertexArray(mesh->vao);
     check_gl_errors("use vao");
 
     // use shader
-    glUseProgram(graphics_data->quad_shader_program);
-    check_gl_errors("use program");
+    use_shader(graphics_data->quad_shader);
 
-    mat4 mat =
+    mat4 world_m_model =
     {
-        scale.x, 0.0f, 0.0f, 0.0f,
-        0.0f, scale.y, 0.0f, 0.0f,
+        scale.x, 0.0f, 0.0f, position.x,
+        0.0f, scale.y, 0.0f, position.y,
         0.0f, 0.0f, 1.0f, 0.0f,
-        position.x, position.y, 0.0f, 1.0f
+        0.0f, 0.0f, 0.0f, 1.0f
     };
-    GLint mvp_location = glGetUniformLocation(graphics_data->quad_shader_program, "mvp");
-    glUniformMatrix4fv(mvp_location, 1, false, &(mat[0][0]));
+    mat4 ndc_m_world = get_ndc_m_world();
+    mat4 mvp = ndc_m_world * world_m_model;
+
+    set_uniform(graphics_data->quad_shader, "mvp", mvp);
+    set_uniform(graphics_data->quad_shader, "blend_color", v4(1.0f, 1.0f, 1.0f, 1.0f));
     
     // bind texture
     glActiveTexture(GL_TEXTURE0);
@@ -67,6 +87,155 @@ void draw_screen_quad(v2 position, v2 scale, GLuint texture_handle)
     // draw
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
+
+static void draw_quad_with_mesh(v4 color, v2 position, v2 scale, Mesh *mesh)
+{
+    // use quad mesh
+    glBindVertexArray(mesh->vao);
+    check_gl_errors("use vao");
+
+    // use shader
+    use_shader(graphics_data->flat_color_shader);
+
+    mat4 world_m_model =
+    {
+        scale.x, 0.0f, 0.0f, position.x,
+        0.0f, scale.y, 0.0f, position.y,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
+    mat4 ndc_m_world = get_ndc_m_world();
+    mat4 mvp = ndc_m_world * world_m_model;
+
+    set_uniform(graphics_data->flat_color_shader, "mvp", mvp);
+
+    set_uniform(graphics_data->flat_color_shader, "color", color);
+
+    // draw
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+void draw_quad(const char *texture, v2 position, v2 scale)
+{
+    GLuint texture_handle = get_or_make_texture(texture);
+    draw_quad(texture_handle, position, scale);
+}
+
+void draw_quad(GLuint texture_handle, v2 position, v2 scale)
+{
+    draw_quad_with_mesh(texture_handle, position, scale, &graphics_data->quad_mesh);
+}
+
+void draw_quad(v4 color, v2 position, v2 scale)
+{
+    draw_quad_with_mesh(color, position, scale, &graphics_data->quad_mesh);
+}
+
+void draw_bottom_left_quad(GLuint texture_handle, v2 position, v2 scale)
+{
+    draw_quad_with_mesh(texture_handle, position, scale, &graphics_data->bottom_left_quad_mesh);
+}
+
+void draw_bottom_left_quad(v4 color, v2 position, v2 scale)
+{
+    draw_quad_with_mesh(color, position, scale, &graphics_data->bottom_left_quad_mesh);
+}
+
+void draw_arrow(v2 start, v2 end, v4 color)
+{
+    // use quad mesh
+    glBindVertexArray(graphics_data->triangle_mesh.vao);
+    check_gl_errors("use vao");
+
+    // use shader
+    use_shader(graphics_data->flat_color_shader);
+
+    float angle = angle_between(v2(0.0f, 1.0f), end - start);
+    if(dot(v2(1.0f, 0.0f), end - start) > 0.0f)
+    {
+        angle = 2.0f*PI - angle;
+    }
+    float l = length(end - start);
+    v2 scale = v2(l * 0.1f, l);
+    mat4 world_m_model = make_translation_matrix(v3(start, 0.0f)) * make_z_axis_rotation_matrix(angle) * make_scale_matrix(v3(scale, 1.0f));
+    mat4 ndc_m_world = get_ndc_m_world();
+    mat4 mvp = ndc_m_world * world_m_model;
+
+    set_uniform(graphics_data->flat_color_shader, "mvp", mvp);
+    set_uniform(graphics_data->flat_color_shader, "color", color);
+
+    // draw
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+}
+
+void draw_ndc_quad(v4 color, v2 position, v2 scale)
+{
+    // use quad mesh
+    glBindVertexArray(graphics_data->quad_mesh.vao);
+    check_gl_errors("use vao");
+
+    use_shader(graphics_data->flat_color_shader);
+
+    mat4 mvp = 
+    {
+        scale.x, 0.0f, 0.0f, position.x,
+        0.0f, scale.y, 0.0f, position.y,
+        0.0f, 0.0f, 1.0f, 0.0f, 
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
+    set_uniform(graphics_data->flat_color_shader, "mvp", mvp);
+    set_uniform(graphics_data->flat_color_shader, "color", color);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+}
+
+void set_camera_position(v2 position)
+{
+    graphics_data->camera.position = position;
+}
+
+void set_camera_width(float width)
+{
+    graphics_data->camera.width = width;
+}
+
+mat4 get_ndc_m_world()
+{
+    float screen_aspect_ratio = get_aspect_ratio(); // width / height
+    v2 camera_position = graphics_data->camera.position;
+    float camera_width = graphics_data->camera.width;
+    
+    mat4 view_m_world =
+    {
+        1.0f, 0.0f, 0.0f, -camera_position.x,
+        0.0f, 1.0f, 0.0f, -camera_position.y,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    mat4 ndc_m_view =
+    {
+        2.0f / camera_width, 0.0f, 0.0f, 0.0f,
+        0.0f, (2.0f / camera_width) * screen_aspect_ratio, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 1.0f
+    };
+
+    return ndc_m_view * view_m_world;
+}
+
+v2 ndc_point_to_world(v2 ndc)
+{
+    mat4 ndc_m_world = get_ndc_m_world();
+
+    v4 ndc4 = v4(ndc, 0.0f, 1.0f);
+    v4 world4 = inverse(ndc_m_world) * ndc4;
+
+    return v2(world4.x, world4.y);
+}
+
+
+
 
 GLuint make_texture(const char *path)
 {
@@ -113,177 +282,6 @@ GLuint get_or_make_texture(const char *texture)
     }
 }
 
-static bool is_newline(char *c)
-{
-    if(c[0] == '\n' || c[0] == '\r' ||
-      (c[0] == '\r' && c[1] == '\n'))
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
-static void read_shader_file(const char *path, char **memory, char **vert_source, char **geom_source, char **frag_source)
-{
-    *memory = nullptr;
-    *vert_source = nullptr;
-    *geom_source = nullptr;
-    *frag_source = nullptr;
-
-    char *file = read_file_as_string(path);
-    if(file == nullptr) return;
-
-    *memory = file;
-
-    int current_tag_length = 0;
-    char *current_tag = nullptr;
-    char *current_source_start = nullptr;
-
-    char *character = file;
-    while(*character != '\0')
-    {
-        if(*character == '@')
-        {
-            // Finish reading current shader source
-            if(current_tag == nullptr)
-            {
-            }
-            else if(strncmp("vertex", current_tag, current_tag_length) == 0)
-            {
-                *vert_source = current_source_start;
-            }
-            else if(strncmp("geometry", current_tag, current_tag_length) == 0)
-            {
-                *geom_source = current_source_start;
-            }
-            else if(strncmp("fragment", current_tag, current_tag_length) == 0)
-            {
-                *frag_source = current_source_start;
-            }
-
-
-            // Null terminate previous shader string
-            *character = '\0';
-
-            // Read tag
-            character++;
-            char *tag = character;
-
-            // Move past tag
-            while(!is_newline(character))
-            {
-                character++;
-            }
-            char *one_past_end_tag = character;
-            while(is_newline(character)) character++;
-
-            current_tag_length = one_past_end_tag - tag;
-            current_tag = tag;
-            current_source_start = character;
-        }
-        else
-        {
-            character++;
-        }
-    }
-
-    // Finish reading current shader source
-    if(current_tag == nullptr)
-    {
-    }
-    else if(strncmp("vertex", current_tag, current_tag_length) == 0)
-    {
-        *vert_source = current_source_start;
-    }
-    else if(strncmp("geometry", current_tag, current_tag_length) == 0)
-    {
-        *geom_source = current_source_start;
-    }
-    else if(strncmp("fragment", current_tag, current_tag_length) == 0)
-    {
-        *frag_source = current_source_start;
-    }
-}
-
-GLuint make_shader(const char *shader_path)
-{
-    int  success;
-    char info_log[512];
-
-
-    char *memory = nullptr;
-    char *vert_source = nullptr;
-    char *geom_source = nullptr;
-    char *frag_source = nullptr;
-    read_shader_file(shader_path, &memory, &vert_source, &geom_source, &frag_source);
-
-
-
-    unsigned int vert_shader;
-    vert_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vert_shader, 1, &vert_source, NULL);
-    glCompileShader(vert_shader);
-    glGetShaderiv(vert_shader, GL_COMPILE_STATUS, &success);
-    if(!success)
-    {
-        glGetShaderInfoLog(vert_shader, 512, NULL, info_log);
-        log_error("VERTEX SHADER ERROR : %s\n%s\n", shader_path, info_log);
-    }
-
-    unsigned int frag_shader;
-    frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(frag_shader, 1, &frag_source, NULL);
-    glCompileShader(frag_shader);
-    glGetShaderiv(frag_shader, GL_COMPILE_STATUS, &success);
-    if(!success)
-    {
-        glGetShaderInfoLog(frag_shader, 512, NULL, info_log);
-        log_error("VERTEX SHADER ERROR : %s\n%s\n", shader_path, info_log);
-    }
-
-
-    unsigned int geom_shader;
-    if(geom_source != nullptr)
-    {
-        geom_shader = glCreateShader(GL_GEOMETRY_SHADER);
-        glShaderSource(geom_shader, 1, &geom_source, NULL);
-        glCompileShader(geom_shader);
-        glGetShaderiv(geom_shader, GL_COMPILE_STATUS, &success);
-        if(!success)
-        {
-            glGetShaderInfoLog(geom_shader, 512, NULL, info_log);
-            log_error("VERTEX SHADER ERROR : %s\n%s\n", shader_path, info_log);
-        }
-    }
-
-    check_gl_errors("compiling shaders");
-
-    GLuint program = glCreateProgram();
-    check_gl_errors("making program");
-
-    glAttachShader(program, vert_shader);
-    glAttachShader(program, frag_shader);
-    if(geom_source != nullptr) glAttachShader(program, geom_shader);
-    glLinkProgram(program);
-    check_gl_errors("linking program");
-
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-    if(!success)
-    {
-        glGetProgramInfoLog(program, 512, NULL, info_log);
-        log_error("SHADER LINKING ERROR : %s\n%s\n", shader_path, info_log);
-    }
-
-    glDeleteShader(vert_shader);
-    glDeleteShader(frag_shader); 
-    check_gl_errors("deleting shaders");
-
-    return program;
-}
-
 RenderTexture make_render_texture(int width, int height)
 {
     RenderTexture result;
@@ -298,8 +296,10 @@ RenderTexture make_render_texture(int width, int height)
     glBindTexture(GL_TEXTURE_2D, result.texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
     GLuint depth_render_buffer;
     glGenRenderbuffers(1, &depth_render_buffer);
@@ -396,6 +396,33 @@ void create_gl_context()
     if(!graphics_data->gl_context) return; // Bad
 }
 
+static void make_mesh(Mesh *mesh, int num_vertices, Vertex *vertices)
+{
+    glGenVertexArrays(1, &mesh->vao);
+    glBindVertexArray(mesh->vao);
+    check_gl_errors("making vao");
+
+    GLuint vbo;
+    glGenBuffers(1, &mesh->vbo);
+    check_gl_errors("making vbo");
+
+    glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+    glBufferData(GL_ARRAY_BUFFER, num_vertices * sizeof(Vertex), vertices, GL_STATIC_DRAW);
+    check_gl_errors("send vbo data");
+
+    float stride = sizeof(Vertex);
+
+    // Position
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, stride, (void *)0);
+    glEnableVertexAttribArray(0);
+
+    // UV
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void *)(sizeof(v2)));
+    glEnableVertexAttribArray(1);
+
+    check_gl_errors("vertex attrib pointer");
+}
+
 void init_common_graphics()
 {
     graphics_data = (GraphicsData *)calloc(1, sizeof(GraphicsData));
@@ -411,43 +438,48 @@ void init_common_graphics()
 
 
 
-    float vertices[] =
+    graphics_data->camera.position = v2();
+    graphics_data->camera.width = 10.0f;
+
+
+
+    Vertex vertices[] =
     {
-        // pos         uv
-        -1.0f, -1.0f,  0.0f, 0.0f,
-        1.0f, -1.0f,  1.0f, 0.0f,
-        1.0f,  1.0f,  1.0f, 1.0f,
+        // pos             uv
+        { v2(-0.5f, -0.5f),  v2(0.0f, 0.0f) },
+        { v2( 0.5f, -0.5f),  v2(1.0f, 0.0f) },
+        { v2( 0.5f,  0.5f),  v2(1.0f, 1.0f) },
 
-        1.0f,  1.0f,  1.0f, 1.0f,
-        -1.0f,  1.0f,  0.0f, 1.0f,
-        -1.0f, -1.0f,  0.0f, 0.0f,
+        { v2( 0.5f,  0.5f),  v2(1.0f, 1.0f) },
+        { v2(-0.5f,  0.5f),  v2(0.0f, 1.0f) },
+        { v2(-0.5f, -0.5f),  v2(0.0f, 0.0f) },
     };
+    make_mesh(&graphics_data->quad_mesh, 6, vertices);
 
-    glGenVertexArrays(1, &graphics_data->quad_vao);
-    glBindVertexArray(graphics_data->quad_vao);
-    check_gl_errors("making vao");
+    Vertex bottom_left_vertices[] =
+    {
+        // pos            uv
+        { v2(0.0f,  0.0f),  v2(0.0f, 0.0f) },
+        { v2(1.0f,  0.0f),  v2(1.0f, 0.0f) },
+        { v2(1.0f,  1.0f),  v2(1.0f, 1.0f) },
 
-    GLuint vbo;
-    glGenBuffers(1, &vbo);
-    check_gl_errors("making vbo");
+        { v2(1.0f,  1.0f),  v2(1.0f, 1.0f) },
+        { v2(0.0f,  1.0f),  v2(0.0f, 1.0f) },
+        { v2(0.0f,  0.0f),  v2(0.0f, 0.0f) },
+    };
+    make_mesh(&graphics_data->bottom_left_quad_mesh, 6, bottom_left_vertices);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    check_gl_errors("send vbo data");
+    Vertex triangle_vertices[] =
+    {
+        // pos
+        { v2(-0.5f,  0.0f), v2() },
+        { v2( 0.5f,  0.0f), v2() },
+        { v2( 0.0f,  1.0f), v2() },
+    };
+    make_mesh(&graphics_data->triangle_mesh, 3, triangle_vertices);
 
-    float stride = 4 * sizeof(float);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, stride, (void *)0);
-    glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void *)(sizeof(v2)));
-    glEnableVertexAttribArray(1);
-    check_gl_errors("vertex attrib pointer");
-
-
-
-    graphics_data->quad_shader_program = make_shader("shaders/quad.shader");
-
-
+    graphics_data->quad_shader = make_shader("shaders/quad.shader");
+    graphics_data->flat_color_shader = make_shader("shaders/flat_color.shader");
 
     graphics_data->textures_map = new std::map<std::string, GLuint>();
 }
@@ -457,7 +489,7 @@ void check_gl_errors(const char *desc)
     GLint error = glGetError();
     if(error)
     {
-        log_error("Error: %s\n", desc);
+        log_error("Error %i: %s\n", error, desc);
         assert(false);
     }
 }
