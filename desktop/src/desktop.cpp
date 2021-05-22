@@ -14,7 +14,7 @@
 
 #include "imgui.h"
 
-#include "easy/profiler.h"
+//#include "easy/profiler.h"
 
 
 
@@ -34,8 +34,10 @@ struct DesktopData
     v2 scene_dimensions;;
     float horizon_t;
     float side_favor;
+
+    bool paused = false;
 };
-static DesktopData *desktop_data;
+static DesktopData *desktop_data = nullptr;
 
 static const int TIME_BUFFER_COUNT = 1000;
 
@@ -71,22 +73,28 @@ static void init_imgui()
 
 static void begin_frame()
 {
-    EASY_FUNCTION();
+    //EASY_FUNCTION();
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplWin32_NewFrame();
 
     ImGui::NewFrame();
 }
 
-static void end_frame()
+__declspec(noinline) static void end_frame()
 {
-    EASY_FUNCTION();
+    //EASY_FUNCTION();
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-    HDC dc = get_device_context();
-    SwapBuffers(dc);
+    static bool done_once = false;
+    if(!done_once)
+    {
+        HDC dc = get_device_context();
+        SwapBuffers(dc);
+        done_once = true;
+    }
+    
 
     glFinish();
 }
@@ -132,7 +140,7 @@ static void preload_textures()
 
 static void adjust_camera()
 {
-    EASY_FUNCTION();
+    //EASY_FUNCTION();
 
     ImGui::SliderFloat("side favor", &desktop_data->side_favor, 0.0f, 1.0f);
 
@@ -172,7 +180,7 @@ static void adjust_camera()
     set_camera_position(camera_position);
 }
 
-static v2 mouse_world_position()
+v2 mouse_world_position()
 {
     v2 p = mouse_screen_position();
     float screen_width = get_screen_width();
@@ -191,22 +199,22 @@ static v2 mouse_world_position()
 
 static void draw_scene()
 {
-    EASY_FUNCTION();
+    //EASY_FUNCTION();
 
     v2 pos = desktop_data->scene_position;
     float scene_width = get_scene_width();
     float scene_height = get_scene_height();
 
-    EASY_BLOCK("Background");
+    //EASY_BLOCK("Background");
     v2 scale = v2(scene_width, scene_height);
     draw_quad("textures/Background/Stars_Back001.png", pos, scale);
-    EASY_END_BLOCK;
+    //EASY_END_BLOCK;
 
     draw_stars();
 
     draw_reflected_stars();
 
-    EASY_BLOCK("Foreground");
+    //EASY_BLOCK("Foreground");
     draw_quad("textures/Background/Sky_Transparent003.png", pos, scale);
     draw_quad("textures/Midground/Mountains_Back004.png", pos, scale);
     draw_quad("textures/Midground/Mountains_Mid_Transparent005.png", pos, scale);
@@ -215,7 +223,19 @@ static void draw_scene()
     draw_quad("textures/Foreground/Forest_ClosestForeground008.png", pos, scale);
     draw_quad("textures/Foreground/Wizard_Foreground009.png", pos, scale);
     draw_quad("textures/Misc. TOP/Signature.png", pos, scale);
-    EASY_END_BLOCK;
+    //EASY_END_BLOCK;
+
+    //draw_quad(v4(1, 1, 1, 1), v2(), v2(1, 1) * 0.9f);
+    float the_x = -0.5f;
+    float gap = scene_width / 9.0f;
+    for(int i = 0; i < 10; i++)
+    {
+        v2 d_pos = v2(the_x, 0.0f);
+        the_x += gap;
+        v2 d_scale = v2(1, 1) * 0.01f;
+        draw_quad(v4(1, 1, 1, 1), d_pos, d_scale);
+    }
+
 
     glFlush();
     glFinish();
@@ -224,7 +244,7 @@ static void draw_scene()
 
 static void do_one_tick()
 {
-    EASY_FUNCTION(0xfff080aa);
+    //EASY_FUNCTION(0xfff080aa);
 
     begin_frame();
 
@@ -272,7 +292,7 @@ void start_desktop()
 
     desktop_data->horizon_t = 1.0f - 0.634f;
 
-    EASY_PROFILER_ENABLE;
+    //EASY_PROFILER_ENABLE;
 
     init_platform();
     init_input();
@@ -305,7 +325,7 @@ void start_desktop()
     desktop_data->target_tick_seconds = 1.0f / (float)freq;
 
 
-    preload_textures();
+    //preload_textures();
 
 
      
@@ -313,11 +333,12 @@ void start_desktop()
     desktop_data->tick_timer = 0.0f;
     while(desktop_data->running)
     {
-        EASY_BLOCK("Main loop");
+        //EASY_BLOCK("Main loop");
 
         platform_events();
 
-        if(want_to_close())
+        bool bwant_to_close = want_to_close();
+        if(bwant_to_close)
         {
             desktop_data->running = false;
             break;
@@ -331,7 +352,7 @@ void start_desktop()
         desktop_data->tick_timer += dt;
 
         // Do ticks
-        while(desktop_data->tick_timer >= desktop_data->target_tick_seconds)
+        while((desktop_data->tick_timer >= desktop_data->target_tick_seconds) && !desktop_data->paused)
         {
             do_one_tick();
 
@@ -346,21 +367,44 @@ void start_desktop()
             }
         }
 
-        EASY_BLOCK("Sleep", 0x22222222);
-        float time_til_end_of_tick = desktop_data->target_tick_seconds - desktop_data->tick_timer;
-        float pad_ms = desktop_data->target_tick_seconds * 0.1f;
-        float sleep_time = time_til_end_of_tick - pad_ms;
-        sleep_time = max(sleep_time, 0.0f);
-        Sleep(sleep_time * 1000.0f);
-        EASY_END_BLOCK;
+        if(desktop_data->paused)
+        {
+            Sleep(desktop_data->target_tick_seconds * 1000.0f);
+        }
+        else
+        {
+            //EASY_BLOCK("Sleep", 0x22222222);
+            float time_til_end_of_tick = desktop_data->target_tick_seconds - desktop_data->tick_timer;
+            float pad_ms = desktop_data->target_tick_seconds * 0.1f;
+            float sleep_time = time_til_end_of_tick - pad_ms;
+            sleep_time = max(sleep_time, 0.0f);
+            Sleep(sleep_time * 1000.0f);
+            //EASY_END_BLOCK;
+        }
 
     }
 
 
-    profiler::dumpBlocksToFile("output/test_profile.prof");
+    //profiler::dumpBlocksToFile("output/test_profile.prof");
 
 
     ImGui_ImplWin32_Shutdown();
     ImGui_ImplOpenGL3_Shutdown();
+}
+
+void pause_desktop()
+{
+    if(desktop_data != nullptr)
+    {
+        desktop_data->paused = true;
+    }
+}
+
+void unpause_desktop()
+{
+    if(desktop_data != nullptr)
+    {
+        desktop_data->paused = false;
+    }
 }
 

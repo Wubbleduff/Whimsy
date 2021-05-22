@@ -12,7 +12,7 @@
 #include "examples/imgui_impl_win32.h"
 #include "examples/imgui_impl_opengl3.h"
 
-#include "easy/profiler.h"
+//#include "easy/profiler.h"
 
 
 
@@ -387,7 +387,7 @@ static void move_particle(Particle *p, v2 mouse_pos)
 
 void update_particles()
 {
-    EASY_FUNCTION();
+    //EASY_FUNCTION();
 
     v2 mouse_pos = mouse_world_position();
 
@@ -519,6 +519,7 @@ static void init_particle_renderer()
     };
 
 
+    /*
     {
         glGenVertexArrays(1, &particles_renderer_data->quad_vao);
         glBindVertexArray(particles_renderer_data->quad_vao);
@@ -544,6 +545,7 @@ static void init_particle_renderer()
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, particles_renderer_data->quad_ebo);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
     }
+    */
 
 
 
@@ -715,7 +717,7 @@ static void draw_grid_cells()
 
 void draw_stars()
 {
-    EASY_FUNCTION();
+    //EASY_FUNCTION();
 
     float sky_height = get_sky_height();
 
@@ -777,7 +779,7 @@ void draw_stars()
 
 void draw_reflected_stars()
 {
-    EASY_FUNCTION();
+    //EASY_FUNCTION();
 
     float sky_height = get_sky_height();
     float scene_height = get_scene_top_right().y - get_scene_bottom_left().y;

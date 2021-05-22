@@ -37,6 +37,55 @@ static PlatformData *platform_data;
 
 
 
+
+
+
+
+#if 1
+BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam)
+{
+    HWND p = FindWindowEx(hwnd, NULL, "SHELLDLL_DefView", NULL);
+    HWND* ret = (HWND*)lParam;
+
+    if (p)
+    {
+        // Gets the WorkerW Window after the current one.
+        *ret = FindWindowEx(NULL, hwnd, "WorkerW", NULL);
+    }
+    return true;
+}
+HWND get_wallpaper_window()
+{
+    // Fetch the Progman window
+    HWND progman = FindWindow("ProgMan", NULL);
+    // Send 0x052C to Progman. This message directs Progman to spawn a 
+    // WorkerW behind the desktop icons. If it is already there, nothing 
+    // happens.
+    SendMessageTimeout(progman, 0x052C, 0, 0, SMTO_NORMAL, 1000, nullptr);
+    // We enumerate all Windows, until we find one, that has the SHELLDLL_DefView 
+    // as a child. 
+    // If we found that window, we take its next sibling and assign it to workerw.
+    HWND wallpaper_hwnd = nullptr;
+    EnumWindows(EnumWindowsProc, (LPARAM)&wallpaper_hwnd);
+    // Return the handle you're looking for.
+    return wallpaper_hwnd;
+}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 HWND get_window_handle() { return platform_data->window_handle; }
 
 int get_screen_width()   { return platform_data->window_width;  }
@@ -78,7 +127,16 @@ int get_monitor_frequency()
 float get_aspect_ratio() { return (float)platform_data->window_width / platform_data->window_height; }
 HDC get_device_context() { return GetDC(platform_data->window_handle); }
 
-bool want_to_close() { return platform_data->want_to_close; }
+bool want_to_close()
+{
+    return platform_data->want_to_close;
+}
+
+static LRESULT send_window_to_back()
+{
+    LRESULT result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, platform_data->window_width, platform_data->window_height, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+    return result;
+}
 
 
 
@@ -129,14 +187,24 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         case WM_LBUTTONDOWN: { record_mouse_event(0, true);  break; }
         case WM_LBUTTONUP:   { record_mouse_event(0, false); break; }
 
-        // idk
-        case WM_ACTIVATE:
-        case WM_ACTIVATEAPP:
+        case WM_KILLFOCUS:
+        {
+            pause_desktop();
+            result = 0;
+        }
+        break;
+
         case WM_SETFOCUS:
+        {
+            unpause_desktop();
+            result = send_window_to_back();
+            result = 0;
+        }
+        break;
         case WM_WINDOWPOSCHANGING:
         {
 #ifndef DEBUG_WINDOW
-            result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, platform_data->window_width, platform_data->window_height, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+            send_window_to_back();
 #endif
 
             // result = SetWindowPos(platform_data->window_handle, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
@@ -160,12 +228,16 @@ void init_platform()
 
     platform_data->app_instance = instance;
 
+    //HICON icon = LoadIcon(NULL, MAKEINTRESOURCE(ICON_MAIN));
+
+
     // Create the window class
     WNDCLASS window_class = {};
 
     window_class.style = CS_HREDRAW|CS_VREDRAW|CS_OWNDC;
     window_class.lpfnWndProc = WindowProc;
     window_class.hInstance = platform_data->app_instance;
+    //window_class.hIcon = icon;
     window_class.hCursor = LoadCursor(NULL, IDC_ARROW);
     window_class.lpszClassName = "Windows Program Class";
 
@@ -179,8 +251,10 @@ void init_platform()
     //unsigned window_width = GetSystemMetrics(SM_CXSCREEN);
     //unsigned window_height = GetSystemMetrics(SM_CYSCREEN);
 
+
     // Create the window
 #ifdef DEBUG_WINDOW
+    
     platform_data->window_handle = CreateWindowEx(0,                  // Extended style
             window_class.lpszClassName,        // Class name
             "",                           // Window name
@@ -193,7 +267,12 @@ void init_platform()
             0,                                 // Handle to a menu
             platform_data->app_instance,        // Handle to an instance
             0);
+            
+
+    
+
 #else
+    /*
     platform_data->window_handle = CreateWindowEx(0,   // Extended style
             window_class.lpszClassName,        // Class name
             "",                           // Window name
@@ -206,6 +285,8 @@ void init_platform()
             0,                                 // Handle to a menu
             platform_data->app_instance,       // Handle to an instance
             0);                                // Pointer to a CLIENTCTREATESTRUCT
+            */
+    platform_data->window_handle = get_wallpaper_window();
 #endif
 
     /*
@@ -244,7 +325,19 @@ void init_platform()
 
     QueryPerformanceCounter(&platform_data->previous_time);
 
-    platform_data->log = fopen("output/log.txt", "w");
+    result = CreateDirectory("output", NULL);
+    DWORD create_dir_result = GetLastError();
+    if(result || ERROR_ALREADY_EXISTS == create_dir_result)
+    {
+        // CopyFile(...)
+        platform_data->log = fopen("output/log.txt", "w");
+    }
+    else
+    {
+        // Failed to create directory.
+    }
+
+    fprintf(platform_data->log, "(%i, %i)\n", platform_data->window_width, platform_data->window_height);
 }
 
 void platform_events()

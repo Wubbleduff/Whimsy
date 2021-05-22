@@ -213,10 +213,11 @@ mat4 get_ndc_m_world()
         0.0f, 0.0f, 0.0f, 1.0f
     };
 
+    float single_monitor_scale = (2560.0f / 5680.0f);
     mat4 ndc_m_view =
     {
-        2.0f / camera_width, 0.0f, 0.0f, 0.0f,
-        0.0f, (2.0f / camera_width) * screen_aspect_ratio, 0.0f, 0.0f,
+        (2.0f * single_monitor_scale) / camera_width, 0.0f, 0.0f, 0.12f,
+        0.0f, ((2.0f * single_monitor_scale) / camera_width) * screen_aspect_ratio, 0.0f, 0.0f,
         0.0f, 0.0f, 1.0f, 0.0f,
         0.0f, 0.0f, 0.0f, 1.0f
     };
@@ -343,7 +344,7 @@ void create_gl_context()
     memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
     pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
     pfd.nVersion = 1;
-    pfd.dwFlags = PFD_DOUBLEBUFFER | PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW;
+    pfd.dwFlags = /*PFD_DOUBLEBUFFER | */PFD_SUPPORT_OPENGL | PFD_DRAW_TO_WINDOW;
     pfd.iPixelType = PFD_TYPE_RGBA;
     pfd.cColorBits = 32;
     pfd.cDepthBits = 32;
